@@ -14,7 +14,9 @@ export const metadata = {
   title: 'GTM Command Center',
   description: 'Your GTM motion, visualized and actionable',
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
   },
 };
 
