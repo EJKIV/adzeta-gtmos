@@ -53,6 +53,19 @@ async function runMigrations() {
   }
   
   console.log('\n✅ Migration run complete');
+  
+  // Refresh PostgREST schema cache
+  console.log('\n🔄 Refreshing PostgREST schema cache...');
+  try {
+    await supabase.rpc('exec_sql', { 
+      sql: "NOTIFY pgrst, 'reload schema'" 
+    });
+    console.log('  ✅ Schema cache refresh triggered');
+    console.log('     (Wait 10-30 seconds for changes to propagate)');
+  } catch (err) {
+    console.log('  ⚠️  Could not auto-refresh cache');
+    console.log('     Run manually: NOTIFY pgrst, \'reload schema\';');
+  }
 }
 
 runMigrations().catch(console.error);
