@@ -11,6 +11,7 @@ import { SkeletonKpiCard, SkeletonObjectiveItem, SkeletonIntelligenceItem } from
 import { useSimplePersonalization, CardType } from '@/hooks/use-simple-personalization';
 import { LogOut, User } from 'lucide-react';
 import { useAuth } from '@/app/components/auth-provider';
+import { LoginGate } from '@/app/components/login-gate';
 
 // Card components map
 const CARD_COMPONENTS: Record<CardType, React.ReactNode> = {

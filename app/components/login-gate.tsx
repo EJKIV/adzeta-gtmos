@@ -92,5 +92,5 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
   }
 
   // Authenticated employee - render children
-  return <>{children}>>;;
+  return <>{children}</>;
 }

@@ -3,7 +3,7 @@ import { Inter } from 'next/font/google';
 import { ThemeProvider } from './components/theme-provider';
 import { AnnouncementProvider } from './components/accessibility';
 import { SkipLink } from './components/accessibility';
-import { AuthProvider } from './components/auth-provider';
+import { AuthWrapper } from './components/auth-wrapper';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -29,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className={`${inter.className} min-h-screen antialiased`}>
-        <AuthProvider>
+        <AuthWrapper>
           <ThemeProvider>
             <AnnouncementProvider>
               {/* Skip links for accessibility */}
@@ -43,7 +43,7 @@ export default function RootLayout({
               {children}
             </AnnouncementProvider>
           </ThemeProvider>
-        </AuthProvider>
+        </AuthWrapper>
       </body>
     </html>
   );
