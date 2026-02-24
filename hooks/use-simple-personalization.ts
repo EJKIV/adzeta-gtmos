@@ -35,15 +35,24 @@ interface CacheEntry {
   timestamp: number;
 }
 
+// Module-level singleton for user ID - prevents multiple components from generating different IDs
+let moduleUserId: string | null = null;
+
 // Generate or get user ID
 function getUserId(): string {
   if (typeof window === 'undefined') return 'anonymous';
+  
+  // Return cached module-level ID if exists
+  if (moduleUserId) return moduleUserId;
   
   let userId = localStorage.getItem('user_id');
   if (!userId) {
     userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     localStorage.setItem('user_id', userId);
   }
+  
+  // Cache at module level for this session
+  moduleUserId = userId;
   return userId;
 }
 
