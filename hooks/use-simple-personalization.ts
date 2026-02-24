@@ -95,7 +95,8 @@ export interface PersonalizationState {
  * Fetches preferences and provides card ordering
  */
 export function useSimplePersonalization(): PersonalizationState {
-  const userId = useMemo(() => getUserId(), []);
+  // Use useState to initialize once, not on every render
+  const [userId] = useState(() => getUserId());
   
   const [cardOrder, setCardOrder] = useState<CardType[]>(DEFAULT_CARD_ORDER);
   const [isLoading, setIsLoading] = useState(true);
