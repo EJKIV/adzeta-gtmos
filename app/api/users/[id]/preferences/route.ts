@@ -1,14 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Check env vars
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Missing Supabase environment variables');
+      return NextResponse.json(
+        { error: 'Server configuration error', details: 'Missing database configuration' },
+        { status: 500 }
+      );
+    }
+
     const { id: userId } = await params;
     
     if (!userId) {
@@ -28,7 +37,7 @@ export async function GET(
 
     if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
       console.error('Preferences fetch error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 500 });
     }
 
     // Return default preferences if none exist
@@ -46,7 +55,7 @@ export async function GET(
   } catch (error) {
     console.error('Preferences API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown' },
       { status: 500 }
     );
   }
@@ -57,6 +66,15 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Check env vars
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Missing Supabase environment variables');
+      return NextResponse.json(
+        { error: 'Server configuration error', details: 'Missing database configuration' },
+        { status: 500 }
+      );
+    }
+
     const { id: userId } = await params;
     const body = await request.json();
     
@@ -81,14 +99,14 @@ export async function PUT(
 
     if (error) {
       console.error('Preferences update error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Preferences API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown' },
       { status: 500 }
     );
   }
