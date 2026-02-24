@@ -8,7 +8,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isEmployee: boolean;
-  signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -18,7 +18,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEmployee, setIsEmployee] = useState(false);
-  const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!, 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   useEffect(() => {
     const getUser = async () => {
@@ -26,7 +29,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user);
       
       if (user) {
-        // Check if user has employee role
         const { data: profile } = await supabase
           .from('profiles')
           .select('is_employee, role')
@@ -64,18 +66,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, [supabase]);
 
-  const signInWithGoogle = async () => {
+  const signInWithEmail = async (email: string) => {
     const currentDomain = typeof window !== 'undefined' ? window.location.origin : 'https://gtm.adzeta.io';
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
+    
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
       options: {
-        redirectTo: `${currentDomain}/auth/callback`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
+        emailRedirectTo: `${currentDomain}/auth/callback`,
       },
     });
+    
+    return { error };
   };
 
   const signOut = async () => {
@@ -85,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isEmployee, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, isLoading, isEmployee, signInWithEmail, signOut }}>
       {children}
     </AuthContext.Provider>
   );

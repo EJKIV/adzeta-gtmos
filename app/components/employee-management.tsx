@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../components/auth-provider';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { Users, UserPlus, UserMinus, AlertCircle, Check, Loader2 } from 'lucide-react';
 
 interface UserProfile {
@@ -16,7 +16,10 @@ interface UserProfile {
 
 export function EmployeeManagement() {
   const { user, isEmployee } = useAuth();
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -170,26 +173,25 @@ export function EmployeeManagement() {
                         {profile.role || 'user'}
                       </span>
                     </td>
-                    
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      <span className={`flex items-center gap-2 px-2 py-1 text-xs font-medium rounded-full ${
                         profile.is_employee
                           ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                           : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
                       }`}>
+                        <span className={`w-2 h-2 rounded-full ${profile.is_employee ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                         {profile.is_employee ? 'Employee' : 'No Access'}
                       </span>
                     </td>
-                    
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <button
                         onClick={() => toggleEmployeeStatus(profile.id, profile.is_employee)}
-                        disabled={isUpdating}
-                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                        disabled={isUpdating || profile.id === user?.id}
+                        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           profile.is_employee
                             ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20'
                             : 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20'
-                        } ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        } ${(isUpdating || profile.id === user?.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         {profile.is_employee ? (
                           <>
