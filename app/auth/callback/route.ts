@@ -5,8 +5,23 @@ import { cookies } from 'next/headers';
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
+  const error = requestUrl.searchParams.get('error');
+  const errorDescription = requestUrl.searchParams.get('error_description');
 
-  if (code) {
+  // Handle errors from OAuth/OTP provider
+  if (error) {
+    console.error('Auth callback error:', error, errorDescription);
+    return NextResponse.redirect(
+      `${requestUrl.origin}?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || '')}`
+    );
+  }
+
+  if (!code) {
+    console.error('No code provided in auth callback');
+    return NextResponse.redirect(`${requestUrl.origin}?error=no_code`);
+  }
+
+  try {
     const cookieStore = await cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,9 +40,25 @@ export async function GET(request: Request) {
         },
       }
     );
-    await supabase.auth.exchangeCodeForSession(code);
+    
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    
+    if (exchangeError) {
+      console.error('Session exchange error:', exchangeError);
+      return NextResponse.redirect(
+        `${requestUrl.origin}?error=exchange_failed&details=${encodeURIComponent(exchangeError.message)}`
+      );
+    }
+    
+    console.log('Auth callback successful');
+    
+  } catch (err) {
+    console.error('Unexpected error in auth callback:', err);
+    return NextResponse.redirect(
+      `${requestUrl.origin}?error=callback_error&details=${encodeURIComponent(err instanceof Error ? err.message : 'Unknown error')}`
+    );
   }
 
-  // URL to redirect to after sign in process completes
+  // Successful auth - redirect to home
   return NextResponse.redirect(requestUrl.origin);
 }

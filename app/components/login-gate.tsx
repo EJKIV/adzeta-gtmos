@@ -1,15 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from './auth-provider';
 import { Lock, Mail, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 export function LoginGate({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isEmployee, signInWithEmail, signOut } = useAuth();
+  const { user, isLoading, isEmployee, error: authError, signInWithEmail, signOut, clearError } = useAuth();
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Check URL params for auth errors from callback
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const params = new URLSearchParams(window.location.search);
+    const urlError = params.get('error');
+    const urlErrorDesc = params.get('error_description');
+    
+    if (urlError) {
+      setError(urlErrorDesc || urlError);
+      // Clear the error from URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
