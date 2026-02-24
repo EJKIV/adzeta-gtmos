@@ -14,7 +14,6 @@ import {
   Brain,
   Target,
   ArrowRight,
-  TrendingFlat,
   ChevronRight,
   Clock,
   Flame,
