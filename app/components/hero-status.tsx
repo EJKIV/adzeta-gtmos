@@ -15,7 +15,7 @@ export function HeroStatus() {
   const { kpis, healthStatus, isLoading, isError, error, isStale, lastUpdated, refetch } = useKpisWithFallback(30000);
   
   // Generate 7-day trend forecasts for KPIs
-  const { getTrend } = useSimpleForecast(kpis.kpis?.cards);
+  const { getTrend } = useSimpleForecast(kpis?.kpis?.cards);
 
   return (
     <section className="relative">
