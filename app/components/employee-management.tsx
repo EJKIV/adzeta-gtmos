@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../components/auth-provider';
-import { createBrowserClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase-client';
 import { Users, UserPlus, UserMinus, AlertCircle, Check, Loader2 } from 'lucide-react';
 
 interface UserProfile {
@@ -16,10 +16,7 @@ interface UserProfile {
 
 export function EmployeeManagement() {
   const { user, isEmployee } = useAuth();
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = getSupabaseClient();
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);

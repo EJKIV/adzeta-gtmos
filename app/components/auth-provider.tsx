@@ -1,7 +1,7 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useMemo } from 'react';
-import { createBrowserClient } from '@supabase/auth-helpers-nextjs';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { getSupabaseClient } from '@/lib/supabase-client';
 import { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -22,13 +22,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isEmployee, setIsEmployee] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Create supabase client once using useMemo to prevent recreation
-  const supabase = useMemo(() => {
-    return createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!, 
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-  }, []);
+  // Get singleton client
+  const supabase = getSupabaseClient();
 
   useEffect(() => {
     let isMounted = true;

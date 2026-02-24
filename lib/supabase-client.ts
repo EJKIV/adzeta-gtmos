@@ -1,20 +1,22 @@
-import { createClient } from '@supabase/supabase-js';
+'use client';
 
-// Create a singleton Supabase client for the browser
-let supabaseClient: ReturnType<typeof createClient> | null = null;
+import { createBrowserClient } from '@supabase/auth-helpers-nextjs';
+
+// Singleton pattern to prevent multiple Supabase client instances
+// This resolves Navigator LockManager timeout errors
+let supabaseClient: ReturnType<typeof createBrowserClient> | null = null;
 
 export function getSupabaseClient() {
-  if (typeof window === 'undefined') return null;
-  if (supabaseClient) return supabaseClient;
-  
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
-  if (!supabaseUrl || !supabaseKey) {
-    console.warn('Supabase credentials not configured');
-    return null;
+  if (!supabaseClient) {
+    supabaseClient = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
   }
-  
-  supabaseClient = createClient(supabaseUrl, supabaseKey);
   return supabaseClient;
+}
+
+// Reset function for testing
+export function resetSupabaseClient() {
+  supabaseClient = null;
 }
