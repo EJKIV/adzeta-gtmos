@@ -65,10 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   const signInWithGoogle = async () => {
+    const currentDomain = typeof window !== 'undefined' ? window.location.origin : 'https://gtm.adzeta.io';
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${currentDomain}/auth/callback`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
