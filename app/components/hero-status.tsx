@@ -87,7 +87,7 @@ export function HeroStatus() {
             <SkeletonKpiCard />
           </>
         ) : (
-          kpis.kpis.cards.map((kpi, index) => (
+          kpis?.kpis?.cards?.map((kpi, index) => (
             <KpiCard
               key={kpi.key}
               label={kpi.label}
@@ -123,7 +123,7 @@ export function HeroStatus() {
           <SkeletonHealthScore />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {kpis.lifecycle.stages.map((stage, index) => (
+            {kpis?.lifecycle?.stages?.map((stage, index) => (
               <StageIndicator
                 key={stage.key}
                 label={stage.label}
@@ -136,7 +136,7 @@ export function HeroStatus() {
       </div>
 
       {/* Campaign Summary */}
-      {kpis.campaigns && !isLoading && (
+      {kpis?.campaigns && !isLoading && (
         <div className="mt-6">
           <div 
             className="rounded-xl border p-5 transition-all duration-200 ease-out hover:shadow-lg hover:shadow-black/[0.05] dark:hover:shadow-black/10"
@@ -156,32 +156,32 @@ export function HeroStatus() {
                 </div>
               </div>
               <span className="px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                {kpis.campaigns.freshness}
+                {kpis.campaigns?.freshness}
               </span>
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <CampaignMetric
                 label="Ad Spend"
-                value={formatCurrency(kpis.campaigns.spend)}
+                value={formatCurrency(kpis.campaigns?.spend)}
               />
               <CampaignMetric
                 label="Revenue"
-                value={formatCurrency(kpis.campaigns.revenue)}
+                value={formatCurrency(kpis.campaigns?.revenue)}
                 highlight
               />
               <CampaignMetric
                 label="Conversions"
-                value={typeof kpis.campaigns.conversions === 'number' 
-                  ? kpis.campaigns.conversions.toLocaleString() 
-                  : String(kpis.campaigns.conversions)}
+                value={typeof kpis.campaigns?.conversions === 'number'
+                  ? kpis.campaigns.conversions.toLocaleString()
+                  : String(kpis.campaigns?.conversions || '')}
               />
               <CampaignMetric
                 label="ROAS"
-                value={typeof kpis.campaigns.roas === 'number' 
+                value={typeof kpis.campaigns?.roas === 'number' 
                   ? `${kpis.campaigns.roas.toFixed(1)}x` 
-                  : String(kpis.campaigns.roas)}
-                highlight={typeof kpis.campaigns.roas === 'number' && kpis.campaigns.roas >= 2}
+                  : String(kpis.campaigns?.roas || '')}
+                highlight={typeof kpis.campaigns?.roas === 'number' && kpis.campaigns.roas >= 2}
               />
             </div>
           </div>
