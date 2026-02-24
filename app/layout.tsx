@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import { ThemeProvider } from './components/theme-provider';
 import { AnnouncementProvider } from './components/accessibility';
 import { SkipLink } from './components/accessibility';
+import { AuthProvider } from './components/auth-provider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -28,19 +29,21 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className={`${inter.className} min-h-screen antialiased`}>
-        <ThemeProvider>
-          <AnnouncementProvider>
-            {/* Skip links for accessibility */}
-            <SkipLink href="#main-content">
-              Skip to main content
-            </SkipLink>
-            <SkipLink href="#main-navigation">
-              Skip to navigation
-            </SkipLink>
-            
-            {children}
-          </AnnouncementProvider>
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <AnnouncementProvider>
+              {/* Skip links for accessibility */}
+              <SkipLink href="#main-content">
+                Skip to main content
+              </SkipLink>
+              <SkipLink href="#main-navigation">
+                Skip to navigation
+              </SkipLink>
+              
+              {children}
+            </AnnouncementProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

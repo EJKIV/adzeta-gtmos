@@ -9,6 +9,8 @@ import { ErrorBoundary, SectionErrorFallback } from '@/app/components/error-boun
 import { VoiceFeedback } from '@/components/voice-feedback';
 import { SkeletonKpiCard, SkeletonObjectiveItem, SkeletonIntelligenceItem } from '@/app/components/skeleton-loader';
 import { useSimplePersonalization, CardType } from '@/hooks/use-simple-personalization';
+import { LogOut, User } from 'lucide-react';
+import { useAuth } from '@/app/components/auth-provider';
 
 // Card components map
 const CARD_COMPONENTS: Record<CardType, React.ReactNode> = {
@@ -126,6 +128,37 @@ export default function Home() {
   });
 
   return (
+    <LoginGate>
+      <HomeContent />
+    </LoginGate>
+  );
+}
+
+function HomeContent() {
+  const { cardOrder, isLoading, recordFeedback } = useSimplePersonalization();
+  const { user, signOut, isEmployee } = useAuth();
+
+  // Record page view on mount
+  useEffect(() => {
+    recordFeedback('dwell', 'dashboard');
+  }, [recordFeedback]);
+
+  // Sort cards based on preference order
+  const sortedCards = cardOrder || ['kpi', 'objectives', 'alerts', 'intelligence'];
+
+  // Split into main content (kpi, objectives) and sidebar (alerts, intelligence)
+  const mainCards: CardType[] = [];
+  const sidebarCards: CardType[] = [];
+
+  sortedCards.forEach((card, index) => {
+    if (index < 2) {
+      mainCards.push(card);
+    } else {
+      sidebarCards.push(card);
+    }
+  });
+
+  return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
       {/* Header - Premium sticky header with subtle blur */}
       <header className="sticky top-0 z-50 border-b backdrop-blur-xl">
@@ -160,6 +193,30 @@ export default function Home() {
               </div>
 
               <VoiceFeedback />
+
+              {/* User Profile */}
+              {user && (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800">
+                    <User className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                    <span className="text-xs text-slate-600 dark:text-slate-400 hidden sm:block max-w-[120px] truncate">
+                      {user.email}
+                    </span>
+                    {isEmployee && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded ml-1">
+                        Emp
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={signOut}
+                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    title="Sign out"
+                  >
+                    <LogOut className="w-4 h-4 text-slate-500" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
