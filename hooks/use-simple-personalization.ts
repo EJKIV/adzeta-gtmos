@@ -35,26 +35,28 @@ interface CacheEntry {
   timestamp: number;
 }
 
-// Module-level singletons - prevent duplicate fetches across component instances
-let moduleUserId: string | null = null;
+// Module-level: read from localStorage ONCE at module init (survives Fast Refresh)
+let moduleUserId: string | null = typeof window !== 'undefined' 
+  ? localStorage.getItem('user_id') 
+  : null;
 let moduleFetchPromise: Promise<PreferenceModel | null> | null = null;
 let moduleLastFetchTime = 0;
 const FETCH_DEDUP_MS = 100; // Deduplicate fetches within 100ms
 
-// Generate or get user ID
+// Generate or get user ID - uses localStorage as source of truth
 function getUserId(): string {
   if (typeof window === 'undefined') return 'anonymous';
   
-  // Return cached module-level ID if exists
-  if (moduleUserId) return moduleUserId;
-  
+  // Check localStorage first (survives Fast Refresh)
   let userId = localStorage.getItem('user_id');
+  
   if (!userId) {
+    // Generate new ID only if no stored ID
     userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     localStorage.setItem('user_id', userId);
   }
   
-  // Cache at module level for this session
+  // Also cache in module for performance
   moduleUserId = userId;
   return userId;
 }
@@ -149,8 +151,13 @@ export interface PersonalizationState {
  * Fetches preferences and provides card ordering
  */
 export function useSimplePersonalization(): PersonalizationState {
-  // Use useState to initialize once, not on every render
-  const [userId] = useState(() => getUserId());
+  // Use useState with initializer that checks module-level cache first
+  // This prevents multiple components from generating different IDs
+  const [userId] = useState(() => {
+    // Fast Refresh resilient: moduleUserId is initialized from localStorage at module load
+    // If moduleUserId exists, use it; otherwise getUserId() will read/create
+    return moduleUserId || getUserId();
+  });
   
   const [cardOrder, setCardOrder] = useState<CardType[]>(DEFAULT_CARD_ORDER);
   const [isLoading, setIsLoading] = useState(true);
