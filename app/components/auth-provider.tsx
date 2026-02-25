@@ -84,11 +84,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(session?.user ?? null);
           
           if (session?.user) {
-            const { data: profile } = await supabase
+            console.log('[Auth] Fetching profile for user:', session.user.id);
+            const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('is_employee, role')
               .eq('id', session.user.id)
               .single();
+            
+            if (profileError) {
+              console.error('[Auth] Profile fetch error:', profileError);
+            } else {
+              console.log('[Auth] Profile loaded:', profile);
+            }
             
             setIsEmployee(profile?.is_employee === true);
           } else {
