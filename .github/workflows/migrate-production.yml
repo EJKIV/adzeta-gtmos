@@ -1,0 +1,54 @@
+name: Migrate Production Database
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'migrations/**'
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: hqhliqjpovtncrwbhlpx
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Supabase CLI
+        run: npm install -g supabase
+
+      - name: Link to Supabase project
+        run: supabase link --project-id $SUPABASE_PROJECT_ID
+
+      - name: Push migrations to production
+        run: |
+          echo "🔄 Pushing migrations to production..."
+          supabase db push --include-all
+
+      - name: Verify migration success
+        if: success()
+        run: |
+          echo "✅ Production migrations completed successfully"
+          echo ""
+          echo "Migrations applied:"
+          ls -la migrations/
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Production migration failed!"
+          echo "Check the logs above for errors."
+          echo "You may need to:"
+          echo "1. Check SUPABASE_ACCESS_TOKEN is set in GitHub secrets"
+          echo "2. Verify Supabase project is accessible"
+          echo "3. Run migrations manually via Dashboard if needed"
+          exit 1
