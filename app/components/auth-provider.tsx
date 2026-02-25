@@ -92,7 +92,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           
           if (isMounted) {
-            setIsEmployee(profile?.is_employee === true);
+            const isEmp = profile?.is_employee === true;
+            console.log('[Auth] getUser - Setting isEmployee to:', isEmp);
+            setIsEmployee(isEmp);
           }
         }
         
@@ -130,11 +132,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               
               if (profileError) {
                 console.error('[Auth] Profile fetch error:', profileError);
+                setIsEmployee(false);
               } else {
                 console.log('[Auth] Profile loaded:', profile);
+                const isEmp = profile?.is_employee === true;
+                console.log('[Auth] Setting isEmployee to:', isEmp, 'from profile.is_employee:', profile?.is_employee);
+                setIsEmployee(isEmp);
               }
-              
-              setIsEmployee(profile?.is_employee === true);
             }
           } else if (event === 'SIGNED_OUT') {
             console.log('[Auth] User signed out');
