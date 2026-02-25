@@ -37,20 +37,20 @@ const SIGNAL_ICONS: Record<ProspectSignal['type'], string> = {
 };
 
 const SIGNAL_COLORS: Record<ProspectSignal['strength'], string> = {
-  high: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  medium: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  low: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+  high: 'bg-amber-50 text-amber-700 border-amber-200',
+  medium: 'bg-blue-50 text-blue-700 border-blue-200',
+  low: 'bg-slate-100 text-slate-500 border-slate-200',
 };
 
 const SIGNAL_COLOR_BG: Record<ProspectSignal['type'], string> = {
-  hiring: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  funding: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-  growth: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  expansion: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-  tech_stack: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  intent: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-  engagement: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
-  news: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+  hiring: 'bg-amber-50 text-amber-700 border-amber-200',
+  funding: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  growth: 'bg-amber-50 text-amber-700 border-amber-200',
+  expansion: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  tech_stack: 'bg-blue-50 text-blue-700 border-blue-200',
+  intent: 'bg-purple-50 text-purple-700 border-purple-200',
+  engagement: 'bg-pink-50 text-pink-700 border-pink-200',
+  news: 'bg-slate-100 text-slate-600 border-slate-200',
 };
 
 function ProspectCard({ prospect, onStartOutreach, onViewSignals }: ProspectCardProps) {
@@ -59,7 +59,7 @@ function ProspectCard({ prospect, onStartOutreach, onViewSignals }: ProspectCard
   const background = useTransform(
     x,
     [-200, 0, 200],
-    ['rgba(239, 68, 68, 0.1)', 'rgba(0, 0, 0, 0)', 'rgba(34, 197, 94, 0.1)']
+    ['rgba(239, 68, 68, 0.05)', 'rgba(0, 0, 0, 0)', 'rgba(34, 197, 94, 0.05)']
   );
 
   const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -69,12 +69,12 @@ function ProspectCard({ prospect, onStartOutreach, onViewSignals }: ProspectCard
   };
 
   const gradeColor = {
-    'A+': 'bg-emerald-500 text-emerald-950',
-    'A': 'bg-emerald-400 text-emerald-950', 
-    'B+': 'bg-blue-500 text-blue-950',
-    'B': 'bg-blue-400 text-blue-950',
-    'C': 'bg-slate-400 text-slate-950',
-    'D': 'bg-slate-500 text-slate-950',
+    'A+': 'bg-emerald-500 text-white',
+    'A': 'bg-emerald-400 text-white',
+    'B+': 'bg-blue-500 text-white',
+    'B': 'bg-blue-400 text-white',
+    'C': 'bg-slate-400 text-white',
+    'D': 'bg-slate-500 text-white',
   }[prospect.scoreGrade];
 
   const getInitials = (name: string) => {
@@ -97,22 +97,22 @@ function ProspectCard({ prospect, onStartOutreach, onViewSignals }: ProspectCard
       whileTap={{ scale: 0.99 }}
       className="relative cursor-grab active:cursor-grabbing"
     >
-      <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-md">
+      <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-start gap-4">
           <div className="relative">
-            <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center text-lg font-bold text-slate-300">
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-lg font-bold text-slate-500">
               {prospect.photoUrl ? (
                 <img
                   src={prospect.photoUrl}
                   alt={prospect.name}
-                  className="w-full h-full rounded-2xl object-cover opacity-90"
+                  className="w-full h-full rounded-2xl object-cover"
                 />
               ) : (
                 getInitials(prospect.name)
               )}
             </div>
             <div className={`
-              absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 border-slate-900
+              absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 border-white
               ${gradeColor}
             `}>
               {prospect.scoreGrade}
@@ -122,28 +122,28 @@ function ProspectCard({ prospect, onStartOutreach, onViewSignals }: ProspectCard
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h3 className="text-lg font-semibold text-slate-100 truncate">
+                <h3 className="text-lg font-semibold text-slate-900 truncate">
                   {prospect.name}
                 </h3>
-                <p className="text-slate-400 text-sm">
+                <p className="text-slate-500 text-sm">
                   {prospect.title}
                 </p>
-                <p className="text-indigo-400 text-sm font-medium">
+                <p className="text-[#de347f] text-sm font-medium">
                   @ {prospect.company}
                 </p>
               </div>
-              
+
               <div className="text-right">
-                <div className="text-2xl font-bold text-slate-200">
+                <div className="text-2xl font-bold text-slate-800">
                   {prospect.score}
                 </div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-400">
                   {prospect.confidence}% match
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+            <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
               {prospect.location && (
                 <span className="flex items-center gap-1">
                   📍 {prospect.location}
@@ -165,7 +165,7 @@ function ProspectCard({ prospect, onStartOutreach, onViewSignals }: ProspectCard
 
         {prospect.signals.length > 0 && (
           <div className="mt-4">
-            <div className="text-xs text-slate-500 mb-2">Buying Signals</div>
+            <div className="text-xs text-slate-400 mb-2">Buying Signals</div>
             <div className="flex flex-wrap gap-2">
               {prospect.signals.map((signal) => (
                 <motion.button
@@ -186,28 +186,28 @@ function ProspectCard({ prospect, onStartOutreach, onViewSignals }: ProspectCard
           </div>
         )}
 
-        <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-800">
+        <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100">
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={onStartOutreach}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-medium transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-medium transition-colors"
           >
             <span>🎯</span>
             <span>Start Outreach</span>
           </motion.button>
-          
+
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={onViewSignals}
-            className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors"
+            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
           >
             📊 Details
           </motion.button>
         </div>
 
-        <div className="sm:hidden mt-3 flex justify-between text-xs text-slate-600">
+        <div className="sm:hidden mt-3 flex justify-between text-xs text-slate-400">
           <span>👈 Skip</span>
           <span>Swipe</span>
           <span>Outreach 👉</span>
@@ -220,11 +220,11 @@ function ProspectCard({ prospect, onStartOutreach, onViewSignals }: ProspectCard
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-20 h-20 rounded-2xl bg-slate-800/50 flex items-center justify-center mb-4">
+      <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
         <span className="text-4xl">🔍</span>
       </div>
-      <h3 className="text-lg font-medium text-slate-300">No prospects yet</h3>
-      <p className="text-slate-500 mt-1 max-w-sm">
+      <h3 className="text-lg font-medium text-slate-700">No prospects yet</h3>
+      <p className="text-slate-400 mt-1 max-w-sm">
         Try searching with natural language like "Find CMOs at fintechs in NYC"
       </p>
     </div>
@@ -237,14 +237,14 @@ function LoadingSkeleton() {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="p-4 rounded-2xl border border-slate-800 bg-slate-900/50"
+          className="p-4 rounded-2xl border border-slate-200 bg-white"
         >
           <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-slate-800 animate-pulse" />
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 animate-pulse" />
             <div className="flex-1 space-y-2">
-              <div className="h-5 w-1/3 bg-slate-800 rounded animate-pulse" />
-              <div className="h-4 w-1/4 bg-slate-800 rounded animate-pulse" />
-              <div className="h-4 w-1/2 bg-slate-800 rounded animate-pulse" />
+              <div className="h-5 w-1/3 bg-slate-100 rounded animate-pulse" />
+              <div className="h-4 w-1/4 bg-slate-100 rounded animate-pulse" />
+              <div className="h-4 w-1/2 bg-slate-100 rounded animate-pulse" />
             </div>
           </div>
         </div>
@@ -305,13 +305,13 @@ export default function ProspectStream({
           />
         ))}
       </AnimatePresence>
-      
+
       {(hasMore || isLoading) && (
         <div ref={loadMoreRef} className="py-8 flex justify-center">
           {isLoading ? (
-            <div className="w-6 h-6 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-[#de347f]/30 border-t-[#de347f] rounded-full animate-spin" />
           ) : (
-            <span className="text-sm text-slate-500">Scroll for more</span>
+            <span className="text-sm text-slate-400">Scroll for more</span>
           )}
         </div>
       )}

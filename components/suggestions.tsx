@@ -32,19 +32,19 @@ const TYPE_ICONS: Record<Suggestion['type'], string> = {
 
 const PRIORITY_COLORS: Record<Suggestion['priority'], { border: string; gradient: string; badge: string }> = {
   high: {
-    border: 'border-amber-500/50',
-    gradient: 'from-amber-500/10 to-transparent',
-    badge: 'bg-amber-500/20 text-amber-400',
+    border: 'border-amber-300',
+    gradient: 'from-amber-50 to-transparent',
+    badge: 'bg-amber-50 text-amber-700',
   },
   medium: {
-    border: 'border-blue-500/50',
-    gradient: 'from-blue-500/10 to-transparent',
-    badge: 'bg-blue-500/20 text-blue-400',
+    border: 'border-blue-300',
+    gradient: 'from-blue-50 to-transparent',
+    badge: 'bg-blue-50 text-blue-700',
   },
   low: {
-    border: 'border-slate-500/50',
-    gradient: 'from-slate-500/10 to-transparent',
-    badge: 'bg-slate-500/20 text-slate-400',
+    border: 'border-slate-200',
+    gradient: 'from-slate-50 to-transparent',
+    badge: 'bg-slate-100 text-slate-500',
   },
 };
 
@@ -75,8 +75,8 @@ function SuggestionCard({ suggestion, onAction, onDismiss }: SuggestionCardProps
     >
       <div className={`
         h-full p-4 rounded-2xl border ${priorityColors.border}
-        bg-gradient-to-br ${priorityColors.gradient} bg-slate-900/90
-        backdrop-blur-xl
+        bg-gradient-to-br ${priorityColors.gradient} bg-white
+        shadow-sm
       `}>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
@@ -85,25 +85,25 @@ function SuggestionCard({ suggestion, onAction, onDismiss }: SuggestionCardProps
               {suggestion.priority.toUpperCase()}
             </span>
           </div>
-          
+
           <button
             onClick={onDismiss}
-            className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
+            className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
           >
             ✕
           </button>
         </div>
 
-        <h3 className="mt-3 text-base font-semibold text-slate-100 line-clamp-2">
+        <h3 className="mt-3 text-base font-semibold text-slate-900 line-clamp-2">
           {suggestion.title}
         </h3>
 
-        <p className="mt-1 text-sm text-slate-400 line-clamp-3">
+        <p className="mt-1 text-sm text-slate-500 line-clamp-3">
           {suggestion.description}
         </p>
 
         {suggestion.context && (
-          <div className="mt-3 p-2 rounded-lg bg-slate-800/50 text-xs text-slate-500">
+          <div className="mt-3 p-2 rounded-lg bg-slate-50 text-xs text-slate-400">
             {suggestion.context}
           </div>
         )}
@@ -113,7 +113,7 @@ function SuggestionCard({ suggestion, onAction, onDismiss }: SuggestionCardProps
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={onAction}
-            className="flex-1 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-medium transition-colors"
+            className="flex-1 py-2 rounded-xl bg-gradient-to-r from-[#de347f] to-[#8f76f5] hover:shadow-glow-magenta text-white text-sm font-medium transition-all"
           >
             {suggestion.actionLabel}
           </motion.button>
@@ -160,7 +160,7 @@ export default function Suggestions({ suggestions, onAction, onDismiss }: Sugges
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <span className="text-xl">✨</span>
-          <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+          <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">
             Smart Suggestions
           </h2>
         </div>
@@ -171,20 +171,20 @@ export default function Suggestions({ suggestions, onAction, onDismiss }: Sugges
             disabled={!canScrollLeft}
             className={`p-1.5 rounded-lg transition-colors ${
               canScrollLeft
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                : 'bg-slate-900 text-slate-600 cursor-not-allowed'
+                ? 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                : 'bg-slate-50 text-slate-300 cursor-not-allowed'
             }`}
           >
             ◀
           </button>
-          
+
           <button
             onClick={() => scroll('right')}
             disabled={!canScrollRight}
             className={`p-1.5 rounded-lg transition-colors ${
               canScrollRight
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                : 'bg-slate-900 text-slate-600 cursor-not-allowed'
+                ? 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                : 'bg-slate-50 text-slate-300 cursor-not-allowed'
             }`}
           >
             ▶
@@ -212,11 +212,11 @@ export default function Suggestions({ suggestions, onAction, onDismiss }: Sugges
       </div>
 
       {canScrollLeft && (
-        <div className="absolute left-0 top-8 bottom-2 w-8 bg-gradient-to-r from-slate-950 to-transparent pointer-events-none" />
+        <div className="absolute left-0 top-8 bottom-2 w-8 bg-gradient-to-r from-[var(--color-bg-secondary)] to-transparent pointer-events-none" />
       )}
-      
+
       {canScrollRight && (
-        <div className="absolute right-0 top-8 bottom-2 w-8 bg-gradient-to-l from-slate-950 to-transparent pointer-events-none" />
+        <div className="absolute right-0 top-8 bottom-2 w-8 bg-gradient-to-l from-[var(--color-bg-secondary)] to-transparent pointer-events-none" />
       )}
     </motion.div>
   );

@@ -1,277 +1,109 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
-import { HeroStatus } from '@/app/components/hero-status';
-import { ObjectivesList } from '@/app/components/objectives-list';
-import { IntelligenceFeed } from '@/app/components/intelligence-feed';
-import { SmartAlerts } from '@/components/smart-alerts';
-import { ErrorBoundary, SectionErrorFallback } from '@/app/components/error-boundary';
-import { VoiceFeedback } from '@/components/voice-feedback';
-import { SkeletonKpiCard, SkeletonObjectiveItem, SkeletonIntelligenceItem } from '@/app/components/skeleton-loader';
-import { useSimplePersonalization, CardType } from '@/hooks/use-simple-personalization';
-import { LogOut, User } from 'lucide-react';
-import { useAuth } from '@/app/components/auth-provider';
+import { useState, useCallback } from 'react';
 import { LoginGate } from '@/app/components/login-gate';
-
-// Card components map
-const CARD_COMPONENTS: Record<CardType, React.ReactNode> = {
-  kpi: (
-    <ErrorBoundary fallback={<SectionErrorFallback title="KPI Dashboard Error" />}>
-      <Suspense fallback={
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <SkeletonKpiCard />
-          <SkeletonKpiCard />
-          <SkeletonKpiCard />
-          <SkeletonKpiCard />
-        </div>
-      }>
-        <HeroStatus />
-      </Suspense>
-    </ErrorBoundary>
-  ),
-  objectives: (
-    <section
-      className="rounded-2xl border p-6 lg:p-8 transition-all duration-200 ease-out hover:shadow-lg hover:shadow-black/[0.03] dark:hover:shadow-black/10"
-      style={{
-        backgroundColor: 'var(--color-bg-elevated)',
-        borderColor: 'var(--color-border)',
-      }}
-    >
-      <ErrorBoundary fallback={<SectionErrorFallback title="Objectives Error" />}>
-        <Suspense fallback={
-          <div className="space-y-3">
-            <SkeletonObjectiveItem />
-            <SkeletonObjectiveItem />
-            <SkeletonObjectiveItem />
-          </div>
-        }>
-          <ObjectivesList />
-        </Suspense>
-      </ErrorBoundary>
-    </section>
-  ),
-  alerts: (
-    <section
-      className="rounded-2xl border p-6 transition-all duration-200 ease-out hover:shadow-lg hover:shadow-black/[0.03] dark:hover:shadow-black/10"
-      style={{
-        backgroundColor: 'var(--color-bg-elevated)',
-        borderColor: 'var(--color-border)',
-      }}
-    >
-      <ErrorBoundary fallback={<SectionErrorFallback title="Smart Alerts Error" />}>
-        <Suspense fallback={
-          <div className="space-y-3">
-            <SkeletonIntelligenceItem />
-            <SkeletonIntelligenceItem />
-            <SkeletonIntelligenceItem />
-          </div>
-        }>
-          <SmartAlerts />
-        </Suspense>
-      </ErrorBoundary>
-    </section>
-  ),
-  intelligence: (
-    <section
-      className="rounded-2xl border p-6 transition-all duration-200 ease-out hover:shadow-lg hover:shadow-black/[0.03] dark:hover:shadow-black/10"
-      style={{
-        backgroundColor: 'var(--color-bg-elevated)',
-        borderColor: 'var(--color-border)',
-      }}
-    >
-      <ErrorBoundary fallback={<SectionErrorFallback title="Intelligence Feed Error" />}>
-        <Suspense fallback={
-          <div className="space-y-3">
-            <SkeletonIntelligenceItem />
-            <SkeletonIntelligenceItem />
-            <SkeletonIntelligenceItem />
-          </div>
-        }>
-          <IntelligenceFeed />
-        </Suspense>
-      </ErrorBoundary>
-    </section>
-  ),
-};
-
-// Card configuration with metadata
-const CARD_META: Record<CardType, { section: string; order: number }> = {
-  kpi: { section: 'hero-status', order: 1 },
-  objectives: { section: 'objectives', order: 2 },
-  alerts: { section: 'smart-alerts', order: 3 },
-  intelligence: { section: 'intelligence', order: 4 },
-};
+import { KpiStrip } from '@/app/components/kpi-strip';
+import { DashboardCommand } from '@/app/components/dashboard-command';
+import { ResponseThread, type ThreadEntry } from '@/app/components/response-thread';
+import { ActivityFeed } from '@/app/components/activity-feed';
+import { QuickActionsBar } from '@/app/components/quick-actions';
+import { executeFromText } from '@/lib/skills/executor';
 
 export default function Home() {
-  // Fetch preferences on mount
-  const { cardOrder, isLoading, recordFeedback } = useSimplePersonalization();
-
-  // Record page view on mount
-  useEffect(() => {
-    recordFeedback('dwell', 'dashboard');
-  }, [recordFeedback]);
-
-  // Sort cards based on preference order
-  const sortedCards = cardOrder || ['kpi', 'objectives', 'alerts', 'intelligence'];
-
-  // Split into main content (kpi, objectives) and sidebar (alerts, intelligence)
-  // based on card order - cards are either in main (8 cols) or sidebar (4 cols)
-  const mainCards: CardType[] = [];
-  const sidebarCards: CardType[] = [];
-
-  sortedCards.forEach((card, index) => {
-    // First 2 cards go to main, rest to sidebar
-    if (index < 2) {
-      mainCards.push(card);
-    } else {
-      sidebarCards.push(card);
-    }
-  });
-
   return (
     <LoginGate>
-      <HomeContent />
+      <DashboardContent />
     </LoginGate>
   );
 }
 
-function HomeContent() {
-  const { cardOrder, isLoading, recordFeedback } = useSimplePersonalization();
-  const { user, signOut, isEmployee } = useAuth();
+function DashboardContent() {
+  const [thread, setThread] = useState<ThreadEntry[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Record page view on mount
-  useEffect(() => {
-    recordFeedback('dwell', 'dashboard');
-  }, [recordFeedback]);
+  const handleCommand = useCallback(async (text: string) => {
+    const commandId = `cmd-${Date.now()}`;
 
-  // Sort cards based on preference order
-  const sortedCards = cardOrder || ['kpi', 'objectives', 'alerts', 'intelligence'];
+    // Add command to thread
+    setThread((prev) => [
+      ...prev,
+      { id: commandId, type: 'command', text, timestamp: new Date() },
+    ]);
 
-  // Split into main content (kpi, objectives) and sidebar (alerts, intelligence)
-  const mainCards: CardType[] = [];
-  const sidebarCards: CardType[] = [];
+    setIsProcessing(true);
 
-  sortedCards.forEach((card, index) => {
-    if (index < 2) {
-      mainCards.push(card);
-    } else {
-      sidebarCards.push(card);
+    try {
+      const output = await executeFromText(text, { source: 'ui' });
+      setThread((prev) => [
+        ...prev,
+        { id: `res-${Date.now()}`, type: 'response', output, timestamp: new Date() },
+      ]);
+    } catch {
+      setThread((prev) => [
+        ...prev,
+        {
+          id: `res-${Date.now()}`,
+          type: 'response',
+          output: {
+            skillId: 'error',
+            status: 'error',
+            blocks: [{ type: 'error', message: 'Something went wrong. Please try again.' }],
+            followUps: [{ label: 'Show help', command: 'help' }],
+            executionMs: 0,
+            dataFreshness: 'mock',
+          },
+          timestamp: new Date(),
+        },
+      ]);
+    } finally {
+      setIsProcessing(false);
     }
-  });
+  }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-      {/* Header - Premium sticky header with subtle blur */}
-      <header className="sticky top-0 z-50 border-b backdrop-blur-xl">
-        <div
-          className="absolute inset-0 bg-white/70 dark:bg-slate-950/70 transition-colors duration-300"
-          style={{ borderColor: 'var(--color-border)' }}
-        />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">GTM Command Center</h1>
-                <p className="text-xs text-slate-500 hidden sm:block">
-                  {isLoading ? 'Loading preferences...' : 'Real-time operations dashboard'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              {/* Connection status indicator */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Live</span>
-              </div>
-
-              <VoiceFeedback />
-
-              {/* User Profile */}
-              {user && (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800">
-                    <User className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-                    <span className="text-xs text-slate-600 dark:text-slate-400 hidden sm:block max-w-[120px] truncate">
-                      {user.email}
-                    </span>
-                    {isEmployee && (
-                      <span className="px-1.5 py-0.5 text-[10px] font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded ml-1">
-                        Emp
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={signOut}
-                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    title="Sign out"
-                  >
-                    <LogOut className="w-4 h-4 text-slate-500" />
-                  </button>
-                </div>
-              )}
+    <div
+      className="light-content min-h-screen transition-colors duration-300"
+      style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+    >
+      {/* Header */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 pb-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1
+              className="text-xl font-bold"
+              style={{ color: 'var(--color-text-primary)' }}
+            >
+              Dashboard
+            </h1>
+            <p className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
+              Agent-first command center
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+              style={{ backgroundColor: 'rgba(22, 163, 74, 0.08)' }}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#16a34a] opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#16a34a]" />
+              </span>
+              <span className="text-xs font-semibold text-[#16a34a]">
+                Live
+              </span>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Main content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Main content - 8 columns on large screens */}
-          <div className="lg:col-span-8 space-y-8">
-            {mainCards.map((cardType) => (
-              <div 
-                key={cardType}
-                className={cardType === 'kpi' ? 'space-y-6' : ''}
-                onMouseEnter={() => recordFeedback('dwell', CARD_META[cardType].section)}
-              >
-                {CARD_COMPONENTS[cardType]}
-              </div>
-            ))}
-          </div>
-
-          {/* Sidebar - 4 columns on large screens */}
-          <div className="lg:col-span-4 space-y-8">
-            {sidebarCards.map((cardType) => (
-              <div 
-                key={cardType}
-                onMouseEnter={() => recordFeedback('dwell', CARD_META[cardType].section)}
-              >
-                {CARD_COMPONENTS[cardType]}
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Main content — single column, centered */}
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <KpiStrip />
+        <DashboardCommand onCommand={handleCommand} isProcessing={isProcessing} />
+        <QuickActionsBar onAction={handleCommand} />
+        <ResponseThread entries={thread} onFollowUp={handleCommand} />
+        <ActivityFeed onAction={handleCommand} />
       </main>
-
-      {/* Footer */}
-      <footer
-        className="border-t mt-12"
-        style={{ borderColor: 'var(--color-border)' }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-            <div className="flex items-center gap-4">
-              <span>GTM Command Center v0.1.0</span>
-              <span className="hidden sm:inline">•</span>
-              <span>Auto-refresh: 30s</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <a href="#" className="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">Documentation</a>
-              <a href="#" className="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">Support</a>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

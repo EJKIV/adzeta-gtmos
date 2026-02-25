@@ -75,12 +75,12 @@ export const colors = {
     900: '#7f1d1d',
   },
 
-  // Brand accents
+  // Brand accents - magenta/purple palette
   brand: {
-    blue: '#3b82f6',
-    violet: '#8b5cf6',
-    purple: '#a855f7',
-    indigo: '#6366f1',
+    magenta: '#de347f',
+    purple: '#8f76f5',
+    pink: '#e958a1',
+    violet: '#6b52d4',
   },
 } as const;
 
@@ -182,7 +182,7 @@ export const shadows = {
     success: '0 0 20px rgba(34, 197, 94, 0.3)',
     warning: '0 0 20px rgba(245, 158, 11, 0.3)',
     danger: '0 0 20px rgba(239, 68, 68, 0.3)',
-    brand: '0 0 20px rgba(139, 92, 246, 0.3)',
+    brand: '0 0 20px rgba(222, 52, 127, 0.3)',
   },
 } as const;
 
@@ -289,8 +289,8 @@ export const componentTokens = {
   // Button variants
   button: {
     primary: {
-      bg: colors.brand.violet,
-      bgHover: '#7c3aed',
+      bg: colors.brand.magenta,
+      bgHover: '#c92d6f',
       text: '#ffffff',
       shadow: shadows.hover,
     },
@@ -330,7 +330,7 @@ export const componentTokens = {
   input: {
     bg: colors.gray[50],
     border: colors.gray[200],
-    borderFocus: colors.brand.violet,
+    borderFocus: colors.brand.magenta,
     text: colors.gray[900],
     placeholder: colors.gray[400],
   },

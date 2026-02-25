@@ -38,12 +38,12 @@ const CONDITION_LABELS: Record<NonNullable<SequenceTouch['condition']>, string> 
   linked_in_accepted: 'If LinkedIn accepted',
 };
 
-function VariantComparison({ 
-  variants, 
-  touch, 
-  onSelect 
-}: { 
-  variants: SequenceVariant[]; 
+function VariantComparison({
+  variants,
+  touch,
+  onSelect
+}: {
+  variants: SequenceVariant[];
   touch: SequenceTouch;
   onSelect?: (variantId: string) => void;
 }) {
@@ -62,59 +62,59 @@ function VariantComparison({
           onClick={() => onSelect?.('a')}
           className={`
             p-3 rounded-xl border cursor-pointer transition-colors
-            ${variantA?.isWinning 
-              ? 'border-emerald-500/50 bg-emerald-500/5' 
-              : 'border-slate-700 bg-slate-800/50 hover:bg-slate-800'}
+            ${variantA?.isWinning
+              ? 'border-emerald-300 bg-emerald-50'
+              : 'border-slate-200 bg-slate-50 hover:bg-slate-100'}
           `}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-slate-400">Variant A</span>
+            <span className="text-xs font-medium text-slate-500">Variant A</span>
             {variantA?.isWinning && (
-              <span className="text-emerald-400">✓ Winner</span>
+              <span className="text-emerald-600">✓ Winner</span>
             )}
           </div>
-          <div className="text-xs text-slate-200 line-clamp-2">
+          <div className="text-xs text-slate-800 line-clamp-2">
             {touch.variantA?.subject && (
               <div className="font-medium mb-1">{touch.variantA.subject}</div>
             )}
-            <div className="text-slate-400">{touch.variantA?.body.slice(0, 80)}...</div>
+            <div className="text-slate-500">{touch.variantA?.body.slice(0, 80)}...</div>
           </div>
-          
+
           {variantA?.metrics && (
             <div className="mt-2 flex items-center gap-2 text-xs">
-              <span className="text-slate-500">📊 {variantA.metrics.replyRate}% reply</span>
+              <span className="text-slate-400">📊 {variantA.metrics.replyRate}% reply</span>
             </div>
           )}
         </motion.div>
       )}
-      
+
       {hasB && (
         <motion.div
           whileHover={{ scale: 1.02 }}
           onClick={() => onSelect?.('b')}
           className={`
             p-3 rounded-xl border cursor-pointer transition-colors
-            ${variantB?.isWinning 
-              ? 'border-emerald-500/50 bg-emerald-500/5' 
-              : 'border-slate-700 bg-slate-800/50 hover:bg-slate-800'}
+            ${variantB?.isWinning
+              ? 'border-emerald-300 bg-emerald-50'
+              : 'border-slate-200 bg-slate-50 hover:bg-slate-100'}
           `}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-slate-400">Variant B</span>
+            <span className="text-xs font-medium text-slate-500">Variant B</span>
             {variantB?.isWinning && (
-              <span className="text-emerald-400">✓ Winner</span>
+              <span className="text-emerald-600">✓ Winner</span>
             )}
           </div>
-          <div className="text-xs text-slate-200 line-clamp-2">
+          <div className="text-xs text-slate-800 line-clamp-2">
             {touch.variantB?.subject && (
               <div className="font-medium mb-1">{touch.variantB.subject}</div>
             )}
-            <div className="text-slate-400">{touch.variantB?.body.slice(0, 80)}...</div>
+            <div className="text-slate-500">{touch.variantB?.body.slice(0, 80)}...</div>
           </div>
-          
+
           {variantB?.metrics && (
             <div className="mt-2 flex items-center gap-2 text-xs">
-              <span className="text-slate-500">📊 {variantB.metrics.replyRate}% reply</span>
+              <span className="text-slate-400">📊 {variantB.metrics.replyRate}% reply</span>
             </div>
           )}
         </motion.div>
@@ -135,45 +135,45 @@ function TouchCard({ touch, variants, isLast }: TouchCardProps) {
   return (
     <div className="relative flex gap-4">
       {!isLast && (
-        <div className="absolute left-6 top-14 bottom-0 w-px bg-slate-800" />
+        <div className="absolute left-6 top-14 bottom-0 w-px bg-[#8f76f5]/20" />
       )}
 
       <div className="flex flex-col items-center">
-        <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-lg">
+        <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-lg">
           {TOUCH_ICONS[touch.type]}
         </div>
-        <div className="mt-1 text-xs font-medium text-slate-500">
+        <div className="mt-1 text-xs font-medium text-slate-400">
           Day {touch.day}
         </div>
       </div>
 
       <div className="flex-1 pb-6">
-        <div 
+        <div
           onClick={handleClick}
-          className="p-4 rounded-xl border border-slate-800 bg-slate-900/50 cursor-pointer hover:bg-slate-900/80 transition-colors"
+          className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm cursor-pointer hover:bg-slate-50 transition-colors"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-slate-300">
-                {touch.type === 'email' ? 'Email' : 
+              <span className="text-sm font-medium text-slate-700">
+                {touch.type === 'email' ? 'Email' :
                  touch.type === 'linkedin' ? 'LinkedIn' :
                  touch.type === 'call' ? 'Call' :
                  touch.type === 'sms' ? 'SMS' : 'Voicemail'}
               </span>
-              
+
               {touch.condition && touch.condition !== 'always' && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400"
+                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500"
                 >
                   {CONDITION_LABELS[touch.condition]}
                 </span>
               )}
             </div>
-            
+
             <div className="flex items-center gap-2">
               {touch.autoSend && (
-                <span className="text-xs text-emerald-400">Auto-send</span>
+                <span className="text-xs text-emerald-600">Auto-send</span>
               )}
-              <span className="text-slate-500">{isExpanded ? '▼' : '▶'}</span>
+              <span className="text-slate-400">{isExpanded ? '▼' : '▶'}</span>
             </div>
           </div>
 
@@ -192,11 +192,11 @@ function TouchCard({ touch, variants, isLast }: TouchCardProps) {
 
                 {touch.variantA?.personalizedFields && touch.variantA.personalizedFields.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1">
-                    <span className="text-xs text-slate-500">Personalized: </span>
+                    <span className="text-xs text-slate-400">Personalized: </span>
                     {touch.variantA.personalizedFields.map((field) => (
-                      <span 
+                      <span
                         key={field}
-                        className="text-xs px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400"
+                        className="text-xs px-1.5 py-0.5 rounded bg-[#de347f]/10 text-[#de347f]"
                       >
                         {field}
                       </span>
@@ -205,7 +205,7 @@ function TouchCard({ touch, variants, isLast }: TouchCardProps) {
                 )}
 
                 {touch.autoSend && (
-                  <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                  <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
                     <span>🕐</span>
                     <span>Est. send: {touch.type === 'email' ? '9:00 AM EST' : '10:00 AM local'}</span>
                   </div>
@@ -221,7 +221,7 @@ function TouchCard({ touch, variants, isLast }: TouchCardProps) {
 
 export default function SequenceVisualizer({ sequence, onVariantSelect, className = '' }: SequenceVisualizerProps) {
   const metrics = sequence.metrics;
-  
+
   const variantA = sequence.variants.find(v => v.name === 'A');
   const variantB = sequence.variants.find(v => v.name === 'B');
   const isAbTest = sequence.variants.length > 1;
@@ -230,21 +230,21 @@ export default function SequenceVisualizer({ sequence, onVariantSelect, classNam
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden ${className}`}
+      className={`rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden ${className}`}
     >
-      <div className="p-4 border-b border-slate-800">
+      <div className="p-4 border-b border-slate-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-2xl">📧</span>
             <div>
-              <h3 className="font-semibold text-slate-200">{sequence.name}</h3>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
+              <h3 className="font-semibold text-slate-800">{sequence.name}</h3>
+              <div className="flex items-center gap-2 text-xs text-slate-400">
                 <span className={`
                   px-2 py-0.5 rounded-full
-                  ${sequence.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' :
-                    sequence.status === 'paused' ? 'bg-amber-500/20 text-amber-400' :
-                    sequence.status === 'draft' ? 'bg-slate-700 text-slate-400' :
-                    'bg-slate-700 text-slate-400'}
+                  ${sequence.status === 'active' ? 'bg-emerald-50 text-emerald-600' :
+                    sequence.status === 'paused' ? 'bg-amber-50 text-amber-600' :
+                    sequence.status === 'draft' ? 'bg-slate-100 text-slate-500' :
+                    'bg-slate-100 text-slate-500'}
                 `}
                 >
                   {sequence.status.toUpperCase()}
@@ -259,33 +259,33 @@ export default function SequenceVisualizer({ sequence, onVariantSelect, classNam
 
           {isAbTest && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">A/B Test:</span>
+              <span className="text-xs text-slate-400">A/B Test:</span>
               <div className="flex items-center gap-1">
                 {variantA?.isWinning && (
-                  <span className="text-emerald-400">✓</span>
+                  <span className="text-emerald-600">✓</span>
                 )}
                 <span className={`
                   text-xs px-2 py-1 rounded-lg
-                  ${variantA?.isWinning ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'}
+                  ${variantA?.isWinning ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}
                 `}
                 >
                   A ({Math.round((variantA?.split || 50))}%)
                 </span>
-                
+
                 {variantB?.isWinning && (
-                  <span className="text-emerald-400">✓</span>
+                  <span className="text-emerald-600">✓</span>
                 )}
                 <span className={`
                   text-xs px-2 py-1 rounded-lg
-                  ${variantB?.isWinning ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'}
+                  ${variantB?.isWinning ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}
                 `}
                 >
                   B ({Math.round((variantB?.split || 50))}%)
                 </span>
               </div>
-              
+
               {(variantA?.isWinning || variantB?.isWinning) && (
-                <span className="text-xs text-emerald-400 ml-2"
+                <span className="text-xs text-emerald-600 ml-2"
                 >
                   {(variantA?.isWinning ? variantA : variantB)?.metrics && Math.abs(
                     (variantA?.metrics.replyRate || 0) - (variantB?.metrics.replyRate || 0)
@@ -298,32 +298,32 @@ export default function SequenceVisualizer({ sequence, onVariantSelect, classNam
 
         <div className="mt-4 grid grid-cols-4 gap-4">
           <div>
-            <div className="text-2xl font-bold text-slate-100">{metrics.replyRate}%</div>
-            <div className="text-xs text-slate-500">Reply Rate</div>
+            <div className="text-2xl font-bold text-slate-900">{metrics.replyRate}%</div>
+            <div className="text-xs text-slate-400">Reply Rate</div>
           </div>
-          
+
           <div>
-            <div className="text-2xl font-bold text-slate-100">{metrics.openRate}%</div>
-            <div className="text-xs text-slate-500">Open Rate</div>
+            <div className="text-2xl font-bold text-slate-900">{metrics.openRate}%</div>
+            <div className="text-xs text-slate-400">Open Rate</div>
           </div>
-          
+
           <div>
-            <div className="text-2xl font-bold text-slate-100">{metrics.bookRate}%</div>
-            <div className="text-xs text-slate-500">Book Rate</div>
+            <div className="text-2xl font-bold text-slate-900">{metrics.bookRate}%</div>
+            <div className="text-xs text-slate-400">Book Rate</div>
           </div>
-          
+
           <div>
-            <div className="text-2xl font-bold text-slate-100">{metrics.sent.toLocaleString()}</div>
-            <div className="text-xs text-slate-500">Sent</div>
+            <div className="text-2xl font-bold text-slate-900">{metrics.sent.toLocaleString()}</div>
+            <div className="text-xs text-slate-400">Sent</div>
           </div>
         </div>
       </div>
 
       <div className="p-4">
-        <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-4">
+        <div className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-4">
           Sequence Timeline
         </div>
-        
+
         <div className="space-y-0">
           {sequence.touches.map((touch, idx) => (
             <TouchCard

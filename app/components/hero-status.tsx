@@ -8,11 +8,19 @@ import { useSimpleForecast } from '@/app/hooks/use-simple-forecast';
 import { SkeletonKpiCard, SkeletonHealthScore } from '@/app/components/skeleton-loader';
 import { SectionErrorFallback } from '@/app/components/error-boundary';
 import { RefreshCw, AlertTriangle, Clock, TrendingUp, Users, Target, DollarSign } from 'lucide-react';
+import { SampleDataBadge } from './sample-data-badge';
+import { KpiDrillDown } from './kpi-drill-down';
 import { cn } from '@/lib/utils';
 import { formatLastUpdated } from '@/app/hooks/use-data-fetch';
+import { useState, useCallback } from 'react';
 
 export function HeroStatus() {
   const { kpis, healthStatus, isLoading, isError, error, isStale, lastUpdated, refetch } = useKpisWithFallback(30000);
+  const [expandedKpi, setExpandedKpi] = useState<string | null>(null);
+
+  const handleDrillDown = useCallback((key: string) => {
+    setExpandedKpi((prev) => (prev === key ? null : key));
+  }, []);
   
   // Generate 7-day trend forecasts for KPIs
   const { getTrend } = useSimpleForecast(kpis?.kpis?.cards);
@@ -21,15 +29,17 @@ export function HeroStatus() {
     <section className="relative">
       {/* Status Header with refresh indicator */}
       <div 
-        className="flex items-center justify-between mb-6 opacity-0 animate-fade-in-up"
-        style={{ animationDelay: '0ms', animationFillMode: 'forwards' }}
+        className="flex items-center justify-between mb-6"
       >
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10">
-            <Target className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <div className="p-2 rounded-lg bg-pink-50 dark:bg-[#de347f]/10">
+            <Target className="w-5 h-5 text-[#de347f] dark:text-[#de347f]" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Command Center</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Command Center</h2>
+              {kpis?.dataSource === 'demo' && <SampleDataBadge />}
+            </div>
             <p className="text-sm text-slate-500">Real-time KPI monitoring</p>
           </div>
           <HealthIndicator 
@@ -97,10 +107,19 @@ export function HeroStatus() {
               trend={getTrend(kpi.key) || undefined}
               loading={isLoading}
               index={index}
+              kpiKey={kpi.key}
+              onDrillDown={handleDrillDown}
             />
           ))
         )}
       </div>
+
+      {/* KPI Drill-Down Panel */}
+      {expandedKpi && (
+        <div className="mb-6">
+          <KpiDrillDown kpiKey={expandedKpi} onClose={() => setExpandedKpi(null)} />
+        </div>
+      )}
 
       {/* Health Score Panel */}
       <div>
@@ -206,12 +225,10 @@ function StageIndicator({ label, count, index = 0 }: StageIndicatorProps) {
         "hover:-translate-y-1 hover:shadow-md",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1",
         "focus-visible:ring-blue-500 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950",
-        "opacity-0 animate-fade-in-up"
       )}
       style={{
         backgroundColor: 'var(--color-bg-elevated)',
         borderColor: 'var(--color-border)',
-        animationDelay: `${index * 50}ms`,
         animationFillMode: 'forwards',
       }}
       tabIndex={0}

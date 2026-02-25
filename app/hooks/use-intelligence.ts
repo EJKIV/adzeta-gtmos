@@ -36,6 +36,7 @@ export interface RelationshipIntelligence {
 }
 
 interface ApiIntelligenceResponse {
+  dataSource?: 'live' | 'demo';
   marker?: string;
   healthScore?: {
     overall: number;
@@ -164,8 +165,11 @@ export function useIntelligence(refreshInterval = 30000) {
     initialData: null,
   });
 
+  const dataSource = result.data?.dataSource ?? 'demo';
+
   return {
     ...result,
     intelligence: transformApiResponse(result.data),
+    dataSource,
   };
 }

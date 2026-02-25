@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
+import {
   Megaphone,
   Plus,
   Play,
@@ -115,10 +115,10 @@ const campaigns: Campaign[] = [
 
 const getStatusColor = (status: Campaign['status']) => {
   switch (status) {
-    case 'active': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
-    case 'paused': return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-    case 'completed': return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
-    case 'draft': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+    case 'active': return 'bg-emerald-50 text-emerald-600 border-emerald-200';
+    case 'paused': return 'bg-amber-50 text-amber-600 border-amber-200';
+    case 'completed': return 'bg-slate-100 text-slate-500 border-slate-200';
+    case 'draft': return 'bg-purple-50 text-purple-600 border-purple-200';
   }
 };
 
@@ -151,16 +151,16 @@ export default function CampaignsPage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                <Megaphone className="w-5 h-5 text-purple-400" />
+              <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
+                <Megaphone className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-100">Campaigns</h1>
-                <p className="text-slate-400">Manage your outreach campaigns and sequences</p>
+                <h1 className="text-2xl font-bold text-slate-900">Campaigns</h1>
+                <p className="text-slate-500">Manage your outreach campaigns and sequences</p>
               </div>
             </div>
 
-            <button className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
+            <button className="px-4 py-2 bg-gradient-to-r from-[#de347f] to-[#8f76f5] hover:shadow-glow-magenta text-white rounded-lg font-medium transition-colors flex items-center gap-2">
               <Plus className="w-4 h-4" />
               New Campaign
             </button>
@@ -169,22 +169,22 @@ export default function CampaignsPage() {
           {/* Stats Overview */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
             {[
-              { label: 'Active Prospects', value: totalProspects.toLocaleString(), icon: Users, color: 'text-blue-400' },
-              { label: 'Meetings Booked', value: totalBooked.toString(), icon: Calendar, color: 'text-emerald-400' },
-              { label: 'Avg Reply Rate', value: `${avgReplyRate}%`, icon: TrendingUp, color: 'text-amber-400' },
+              { label: 'Active Prospects', value: totalProspects.toLocaleString(), icon: Users, color: 'text-blue-600' },
+              { label: 'Meetings Booked', value: totalBooked.toString(), icon: Calendar, color: 'text-emerald-600' },
+              { label: 'Avg Reply Rate', value: `${avgReplyRate}%`, icon: TrendingUp, color: 'text-amber-600' },
             ].map((stat, i) => (
               <motion.div
                 key={stat.label}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="p-4 rounded-xl bg-slate-900/50 border border-slate-800"
+                className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-400">{stat.label}</span>
+                  <span className="text-sm text-slate-500">{stat.label}</span>
                   <stat.icon className={`w-4 h-4 ${stat.color}`} />
                 </div>
-                <div className="text-2xl font-bold text-slate-100 mt-1">{stat.value}</div>
+                <div className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</div>
               </motion.div>
             ))}
           </div>
@@ -212,20 +212,20 @@ export default function CampaignsPage() {
                   transition={{ delay: 0.1 + i * 0.05 }}
                   onMouseEnter={() => setHoveredCampaign(campaign.id)}
                   onMouseLeave={() => setHoveredCampaign(null)}
-                  className="group p-5 rounded-2xl bg-slate-900/50 border-2 border-slate-800 hover:border-slate-700 transition-all cursor-pointer"
+                  className="group p-5 rounded-2xl bg-white border-2 border-slate-200 hover:border-slate-300 hover:shadow-md transition-all cursor-pointer"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4">
                       <div className={`p-3 rounded-xl border-2 ${getStatusColor(campaign.status)}`}>
                         <StatusIcon className="w-5 h-5" />
                       </div>
-                      
+
                       <div>
-                        <h3 className="font-semibold text-slate-100 text-lg group-hover:text-indigo-400 transition-colors">
+                        <h3 className="font-semibold text-slate-900 text-lg group-hover:text-[#de347f] transition-colors">
                           {campaign.name}
                         </h3>
-                        <p className="text-sm text-slate-400">{campaign.sequenceName}</p>
-                        
+                        <p className="text-sm text-slate-500">{campaign.sequenceName}</p>
+
                         <div className="flex items-center gap-4 mt-2">
                           <span className={`
                             px-2 py-0.5 rounded-full text-xs font-medium border
@@ -233,10 +233,10 @@ export default function CampaignsPage() {
                           `}>
                             {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
                           </span>
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-slate-400">
                             {campaign.prospectsContacted}/{campaign.prospectsTotal} contacted
                           </span>
-                          <span className="text-xs text-slate-600">
+                          <span className="text-xs text-slate-400">
                             Last active {campaign.lastActive.toLocaleDateString()}
                           </span>
                         </div>
@@ -244,26 +244,26 @@ export default function CampaignsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors">
+                      <button className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
                         <RotateCcw className="w-4 h-4" />
                       </button>
-                      <button className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors">
+                      <button className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
                         <MoreVertical className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
 
                   {/* Metrics */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-5 border-t border-slate-800">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-5 border-t border-slate-200">
                     <div>
                       <div className="flex items-center gap-2 text-slate-400 mb-1">
                         <MailOpen className="w-4 h-4" />
                         <span className="text-xs">Open Rate</span>
                       </div>
-                      <div className="text-lg font-semibold text-slate-100">
+                      <div className="text-lg font-semibold text-slate-900">
                         {campaign.metrics.openRate}%
                       </div>
-                      <div className="text-xs text-slate-500">{campaign.opened} opened</div>
+                      <div className="text-xs text-slate-400">{campaign.opened} opened</div>
                     </div>
 
                     <div>
@@ -271,10 +271,10 @@ export default function CampaignsPage() {
                         <Reply className="w-4 h-4" />
                         <span className="text-xs">Reply Rate</span>
                       </div>
-                      <div className="text-lg font-semibold text-slate-100">
+                      <div className="text-lg font-semibold text-slate-900">
                         {campaign.metrics.replyRate}%
                       </div>
-                      <div className="text-xs text-slate-500">{campaign.replied} replied</div>
+                      <div className="text-xs text-slate-400">{campaign.replied} replied</div>
                     </div>
 
                     <div>
@@ -282,10 +282,10 @@ export default function CampaignsPage() {
                         <MousePointer className="w-4 h-4" />
                         <span className="text-xs">Click Rate</span>
                       </div>
-                      <div className="text-lg font-semibold text-slate-100">
+                      <div className="text-lg font-semibold text-slate-900">
                         {campaign.metrics.clickRate}%
                       </div>
-                      <div className="text-xs text-slate-500">{campaign.clicked} clicked</div>
+                      <div className="text-xs text-slate-400">{campaign.clicked} clicked</div>
                     </div>
 
                     <div>
@@ -293,26 +293,26 @@ export default function CampaignsPage() {
                         <Calendar className="w-4 h-4" />
                         <span className="text-xs">Book Rate</span>
                       </div>
-                      <div className="text-lg font-semibold text-emerald-400">
+                      <div className="text-lg font-semibold text-emerald-600">
                         {campaign.metrics.bookRate}%
                       </div>
-                      <div className="text-xs text-emerald-500/70">{campaign.booked} meetings</div>
+                      <div className="text-xs text-emerald-500">{campaign.booked} meetings</div>
                     </div>
                   </div>
 
                   {/* Progress Bar */}
                   <div className="mt-4">
-                    <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
+                    <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
                       <span>Campaign Progress</span>
                       <span>{Math.round((campaign.prospectsContacted / campaign.prospectsTotal) * 100)}%</span>
                     </div>
-                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${(campaign.prospectsContacted / campaign.prospectsTotal) * 100}%` }}
                         transition={{ duration: 0.5, delay: 0.2 + i * 0.05 }}
                         className={`h-full rounded-full ${
-                          campaign.status === 'active' ? 'bg-gradient-to-r from-indigo-500 to-purple-500' :
+                          campaign.status === 'active' ? 'bg-gradient-to-r from-[#de347f] to-[#8f76f5]' :
                           campaign.status === 'paused' ? 'bg-amber-500' :
                           campaign.status === 'completed' ? 'bg-emerald-500' :
                           'bg-purple-500'
@@ -332,12 +332,12 @@ export default function CampaignsPage() {
               animate={{ opacity: 1 }}
               className="text-center py-20"
             >
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-800 flex items-center justify-center">
-                <Megaphone className="w-8 h-8 text-slate-600" />
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
+                <Megaphone className="w-8 h-8 text-slate-400" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-300">No campaigns yet</h3>
-              <p className="text-slate-500 mt-2">Create your first campaign to start reaching prospects</p>
-              <button className="mt-6 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-slate-700">No campaigns yet</h3>
+              <p className="text-slate-400 mt-2">Create your first campaign to start reaching prospects</p>
+              <button className="mt-6 px-4 py-2 bg-gradient-to-r from-[#de347f] to-[#8f76f5] hover:shadow-glow-magenta text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 Create Campaign
               </button>

@@ -16,6 +16,19 @@ const PATTERNS = {
     sequence: /\b(sequence|flow|drip|follow.up|multi.touch)\b/gi,
     analyze: /\b(analyze|review|report|insights|performance|metrics|stats)\b/gi,
     export: /\b(export|download|save|csv|spreadsheet)\b/gi,
+    dashboard: /\b(dashboard|overview|summary|status|health)\b/gi,
+    pipeline: /\b(pipeline|funnel|conversion|pipeline value)\b/gi,
+    forecast: /\b(forecast|predict|projection|trend)\b/gi,
+    kpi: /\b(kpi|metric|kpis|metrics|numbers)\b/gi,
+    help: /\b(help|what can|how do|commands|skills)\b/gi,
+  },
+
+  // Time range patterns
+  timeRange: {
+    today: /\b(today|now|current)\b/gi,
+    week: /\b(this week|weekly|past week|7 days|7d)\b/gi,
+    month: /\b(this month|monthly|past month|30 days|30d)\b/gi,
+    quarter: /\b(this quarter|quarterly|q[1-4]|past quarter|90 days)\b/gi,
   },
 
   // Title extraction patterns
@@ -183,13 +196,29 @@ const LOCATION_MAP: Record<string, string> = {
  * Extract action type from input
  */
 function detectAction(input: string): CommandIntent['action'] {
+  // Check help first (short-circuit)
+  if (PATTERNS.actions.help.test(input)) return 'help';
+
   for (const [action, pattern] of Object.entries(PATTERNS.actions)) {
+    if (action === 'help') continue; // already checked
     if (pattern.test(input) || input.toLowerCase().includes(action.toLowerCase())) {
       if (action === 'campaign' || action === 'sequence') return 'campaign';
       return action as CommandIntent['action'];
     }
   }
   return 'research'; // Default to research
+}
+
+/**
+ * Extract time range from input
+ */
+function extractTimeRange(input: string): CommandIntent['timeRange'] {
+  for (const [range, pattern] of Object.entries(PATTERNS.timeRange)) {
+    if (pattern.test(input)) {
+      return range as CommandIntent['timeRange'];
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -423,6 +452,8 @@ export function parseCommand(input: string): CommandIntent {
     ? extractCampaignInfo(normalizedInput)
     : undefined;
 
+  const timeRange = extractTimeRange(normalizedInput);
+
   const intent: CommandIntent = {
     action,
     icp: Object.keys(icp).length > 0 ? icp : undefined,
@@ -431,6 +462,7 @@ export function parseCommand(input: string): CommandIntent {
     query: normalizedInput,
     rawInput: normalizedInput,
     confidence: 0,
+    timeRange,
   };
 
   // Calculate final confidence
@@ -488,6 +520,12 @@ export function formatIntentDescription(intent: CommandIntent): string {
     sequence: 'Build sequence for',
     analyze: 'Analyze',
     export: 'Export',
+    dashboard: 'Show dashboard',
+    pipeline: 'Show pipeline',
+    forecast: 'Show forecast for',
+    kpi: 'Show KPI details for',
+    help: 'Show help',
+    status: 'Show status',
   };
 
   parts.push(actionVerbs[intent.action] || 'Find');
@@ -545,6 +583,38 @@ export function formatIntentDescription(intent: CommandIntent): string {
   }
 
   return parts.join(' ');
+}
+
+/**
+ * Map a parsed CommandIntent to a skill ID and params.
+ * Used by the skill executor to bridge NLP → skill system.
+ */
+export function matchSkill(
+  intent: CommandIntent
+): { skillId: string; params: Record<string, unknown> } | null {
+  const INTENT_TO_SKILL: Record<string, string> = {
+    dashboard: 'analytics.pipeline_summary',
+    pipeline: 'analytics.pipeline_summary',
+    status: 'analytics.pipeline_summary',
+    kpi: 'analytics.kpi_detail',
+    forecast: 'analytics.kpi_detail',
+    analyze: 'analytics.kpi_detail',
+    help: 'system.help',
+    research: 'research.prospect_search',
+  };
+
+  const skillId = INTENT_TO_SKILL[intent.action];
+  if (!skillId) return null;
+
+  return {
+    skillId,
+    params: {
+      timeRange: intent.timeRange || 'week',
+      icp: intent.icp,
+      filters: intent.filters,
+      query: intent.rawInput,
+    },
+  };
 }
 
 export default parseCommand;

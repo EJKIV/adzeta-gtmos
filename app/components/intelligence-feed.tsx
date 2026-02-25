@@ -6,6 +6,7 @@ import { SectionErrorFallback } from '@/app/components/error-boundary';
 import { formatLastUpdated } from '@/app/hooks/use-data-fetch';
 import { cn } from '@/lib/utils';
 import { RefreshCw, AlertTriangle, Clock, Users, Activity, MessageSquare, ArrowRight, ChevronRight } from 'lucide-react';
+import { SampleDataBadge } from './sample-data-badge';
 import { useState, useMemo } from 'react';
 
 type IntelligenceTab = 'activity' | 'accounts' | 'actions';
@@ -17,14 +18,15 @@ interface IntelligenceFeedProps {
 export function IntelligenceFeed({ limit = 5 }: IntelligenceFeedProps) {
   const [activeTab, setActiveTab] = useState<IntelligenceTab>('activity');
   
-  const { 
+  const {
     intelligence,
-    isLoading, 
-    isError, 
-    error, 
-    isStale, 
-    lastUpdated, 
-    refetch 
+    isLoading,
+    isError,
+    error,
+    isStale,
+    lastUpdated,
+    refetch,
+    dataSource,
   } = useIntelligence(30000);
 
   const healthScore = intelligence.healthScore;
@@ -50,8 +52,9 @@ export function IntelligenceFeed({ limit = 5 }: IntelligenceFeedProps) {
       <div className="flex flex-col gap-3 mb-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Activity className="w-5 h-5 text-indigo-500" />
+            <Activity className="w-5 h-5 text-[#de347f]" />
             Intelligence
+            {!isLoading && dataSource === 'demo' && <SampleDataBadge />}
           </h2>
           
           <div className="flex items-center gap-2">
@@ -215,16 +218,16 @@ function Tab({ label, count, isActive, onClick }: TabProps) {
       onClick={onClick}
       className={cn(
         "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
-        isActive 
-          ? "border-indigo-500 text-indigo-600 dark:text-indigo-400" 
+        isActive
+          ? "border-[#de347f] text-[#de347f] dark:text-[#de347f]"
           : "border-transparent text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
       )}
     >
       {label}
       <span className={cn(
         "ml-1.5 px-1.5 py-0.5 text-xs rounded-full",
-        isActive 
-          ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
+        isActive
+          ? "bg-[#de347f]/10 text-[#de347f] dark:bg-[#de347f]/20 dark:text-[#e958a1]"
           : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
       )}>
         {count}
@@ -280,9 +283,9 @@ function ActivityItem({ activity }: ActivityItemProps) {
   };
 
   return (
-    <div className="group flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors cursor-pointer">
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
-        <Icon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+    <div className="group flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:border-[#de347f] dark:hover:border-[#de347f] transition-colors cursor-pointer">
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#de347f]/10 dark:bg-[#de347f]/10 flex items-center justify-center">
+        <Icon className="w-4 h-4 text-[#de347f] dark:text-[#de347f]" />
       </div>
       
       <div className="flex-1 min-w-0">
@@ -334,7 +337,7 @@ function AccountItem({ account }: AccountItemProps) {
   const stageClass = stageColors[stage] || stageColors.qualified;
 
   return (
-    <div className="group flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors cursor-pointer">
+    <div className="group flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:border-[#de347f] dark:hover:border-[#de347f] transition-colors cursor-pointer">
       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
         <Users className="w-4 h-4 text-slate-600 dark:text-slate-400" />
       </div>

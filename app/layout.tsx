@@ -4,6 +4,7 @@ import { ThemeProvider } from './components/theme-provider';
 import { AnnouncementProvider } from './components/accessibility';
 import { SkipLink } from './components/accessibility';
 import { AuthWrapper } from './components/auth-wrapper';
+import NavSidebar from '@/components/nav-sidebar';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -40,7 +41,7 @@ export default function RootLayout({
                 Skip to navigation
               </SkipLink>
               
-              {children}
+              <NavSidebar>{children}</NavSidebar>
             </AnnouncementProvider>
           </ThemeProvider>
         </AuthWrapper>

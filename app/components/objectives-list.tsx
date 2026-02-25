@@ -153,7 +153,7 @@ export function ObjectivesList({ limit = 5 }: ObjectivesListProps) {
           </>
         ) : filteredTasks.length === 0 ? (
           // Empty state
-          <div className="p-8 text-center rounded-lg border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+          <div className="p-8 text-center rounded-lg border border-dashed border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.02]">
             <CheckCircle2 className="w-8 h-8 text-slate-400 mx-auto mb-2" />
             <p className="text-sm text-slate-500 dark:text-slate-400">
               {filter === 'all' ? 'No objectives found' : `No ${filter} objectives`}
@@ -202,7 +202,7 @@ interface FilterTabProps {
 
 function FilterTab({ label, count, isActive, onClick, color = 'default' }: FilterTabProps) {
   const colorClasses = {
-    default: isActive ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',
+    default: isActive ? 'bg-slate-900 text-white dark:bg-[#1a1528] dark:text-slate-100' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/[0.04]',
     warning: isActive ? 'bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100' : 'text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950',
     danger: isActive ? 'bg-red-100 text-red-900 dark:bg-red-900 dark:text-red-100' : 'text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950',
     success: isActive ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-100' : 'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950',

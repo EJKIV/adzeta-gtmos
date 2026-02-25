@@ -44,6 +44,7 @@ export interface KpiAggregate {
   kpis: KpiData;
   lifecycle: LifecycleSummary;
   campaigns: CampaignSummary;
+  dataSource?: 'live' | 'demo';
 }
 
 export function useKpis(refreshInterval = 30000) {
@@ -74,6 +75,7 @@ export function getMockKpiData(): KpiAggregate {
   return {
     generated_at: new Date().toISOString(),
     mode: 'local',
+    dataSource: 'demo',
     kpis: {
       generated_at: new Date().toISOString(),
       freshness: 'local',

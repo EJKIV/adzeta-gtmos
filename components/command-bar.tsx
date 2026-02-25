@@ -103,7 +103,7 @@ export default function CommandBar({ onCommand, isProcessing, className = '' }: 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveSuggestionIndex(prev => 
+      setActiveSuggestionIndex(prev =>
         prev < suggestions.length - 1 ? prev + 1 : prev
       );
     } else if (e.key === 'ArrowUp') {
@@ -111,7 +111,7 @@ export default function CommandBar({ onCommand, isProcessing, className = '' }: 
       setActiveSuggestionIndex(prev => prev > -1 ? prev - 1 : -1);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      
+
       if (activeSuggestionIndex >= 0 && suggestions[activeSuggestionIndex]) {
         const suggestion = suggestions[activeSuggestionIndex];
         if (suggestion.id === 'preview' && parsedIntent) {
@@ -152,13 +152,13 @@ export default function CommandBar({ onCommand, isProcessing, className = '' }: 
   };
 
   return (
-    <div className={`fixed top-0 left-0 right-0 z-50 ${className}`}>
+    <div className={className}>
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="mx-auto max-w-4xl px-4 pt-4"
+        className="mx-auto max-w-4xl"
       >
-        <div className={`relative rounded-2xl border bg-slate-950/95 backdrop-blur-xl shadow-2xl transition-all duration-200 ${isFocused ? 'border-indigo-500/50 shadow-indigo-500/20' : 'border-slate-800'}`}
+        <div className={`relative rounded-2xl border bg-white shadow-md transition-all duration-200 ${isFocused ? 'border-[#de347f]/50 shadow-lg ring-2 ring-[#de347f]/10' : 'border-slate-200'}`}
         >
           <form onSubmit={handleSubmit}>
             <div className="flex items-center px-4 py-3 gap-3">
@@ -166,7 +166,7 @@ export default function CommandBar({ onCommand, isProcessing, className = '' }: 
                 <span className="text-xl">🎯</span>
                 <span className="hidden sm:block text-sm font-medium">GTM</span>
               </div>
-              
+
               <div className="flex-1 relative">
                 <input
                   ref={inputRef}
@@ -177,25 +177,25 @@ export default function CommandBar({ onCommand, isProcessing, className = '' }: 
                   onBlur={() => setTimeout(() => setIsFocused(false), 200)}
                   onKeyDown={handleKeyDown}
                   placeholder="Find me CMOs at fintechs Series B+..."
-                  className="w-full bg-transparent text-lg text-slate-100 placeholder-slate-500 outline-none"
+                  className="w-full bg-transparent text-lg text-slate-900 placeholder-slate-400 outline-none"
                   disabled={isProcessing}
                 />
-                
+
                 {isProcessing && (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="absolute right-0 top-1/2 -translate-y-1/2"
                   >
-                    <div className="w-5 h-5 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-[#de347f]/30 border-t-[#de347f] rounded-full animate-spin" />
                   </motion.div>
                 )}
               </div>
-              
+
               <div className="hidden sm:flex items-center gap-2">
                 <button
                   type="button"
-                  className="px-2 py-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                  className="px-2 py-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   ⌘K
                 </button>
@@ -209,7 +209,7 @@ export default function CommandBar({ onCommand, isProcessing, className = '' }: 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="border-t border-slate-800"
+                className="border-t border-slate-100"
               >
                 <div className="py-2">
                   {suggestions.map((suggestion, index) => (
@@ -220,20 +220,20 @@ export default function CommandBar({ onCommand, isProcessing, className = '' }: 
                       animate={{ opacity: 1, x: 0 }}
                       onClick={() => handleSuggestionClick(suggestion)}
                       onMouseEnter={() => setActiveSuggestionIndex(index)}
-                      className={`w-full px-4 py-2 flex items-center gap-3 text-left transition-colors ${activeSuggestionIndex === index ? 'bg-slate-800/50' : 'hover:bg-slate-800/30'}`}
+                      className={`w-full px-4 py-2 flex items-center gap-3 text-left transition-colors ${activeSuggestionIndex === index ? 'bg-[#8f76f5]/5' : 'hover:bg-slate-50'}`}
                     >
                       <span className="text-lg">{suggestion.icon}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs text-slate-500 uppercase tracking-wider">
+                        <div className="text-xs text-slate-400 uppercase tracking-wider">
                           {suggestion.label}
                         </div>
-                        <div className="text-sm text-slate-300 truncate">
+                        <div className="text-sm text-slate-700 truncate">
                           {suggestion.text}
                         </div>
                       </div>
-                      
+
                       {index === 0 && (
-                        <span className="text-xs text-slate-500">↵</span>
+                        <span className="text-xs text-slate-400">↵</span>
                       )}
                     </motion.button>
                   ))}
@@ -248,24 +248,24 @@ export default function CommandBar({ onCommand, isProcessing, className = '' }: 
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="border-t border-slate-800 px-4 py-2"
+                className="border-t border-slate-100 px-4 py-2"
               >
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="text-slate-500">{parsedIntent.action.toUpperCase()}</span>
-                  <span className="text-slate-600">•</span>
-                  <span className="text-slate-400">{Math.round(parsedIntent.confidence * 100)}% confidence</span>
-                  
+                  <span className="text-slate-400">{parsedIntent.action.toUpperCase()}</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-slate-500">{Math.round(parsedIntent.confidence * 100)}% confidence</span>
+
                   {parsedIntent.icp?.titles && (
                     <>
-                      <span className="text-slate-600">•</span>
-                      <span className="text-indigo-400">{parsedIntent.icp.titles.join(', ')}</span>
+                      <span className="text-slate-300">•</span>
+                      <span className="text-[#de347f]">{parsedIntent.icp.titles.join(', ')}</span>
                     </>
                   )}
-                  
+
                   {parsedIntent.icp?.industries && (
                     <>
-                      <span className="text-slate-600">•</span>
-                      <span className="text-emerald-400">{parsedIntent.icp.industries[0]}</span>
+                      <span className="text-slate-300">•</span>
+                      <span className="text-emerald-600">{parsedIntent.icp.industries[0]}</span>
                     </>
                   )}
                 </div>

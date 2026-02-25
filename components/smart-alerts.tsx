@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   TrendingUp,
   TrendingDown,
+  Minus,
   Activity,
   Brain,
   Target,
@@ -100,7 +101,7 @@ export function SmartAlerts({ limit = 5 }: SmartAlertsProps) {
               disabled={isLoading}
               className={cn(
                 'p-1.5 rounded-md transition-colors',
-                'hover:bg-slate-100 dark:hover:bg-slate-800',
+                'hover:bg-slate-100 dark:hover:bg-white/[0.06]',
                 isLoading && 'animate-spin'
               )}
               aria-label="Refresh predictions"
@@ -261,7 +262,7 @@ function PredictionItem({ forecast }: PredictionItemProps) {
       ? 'text-red-600 dark:text-red-400'
       : 'text-slate-600 dark:text-slate-400';
 
-  const TrendIcon = forecast.trend === 'up' ? TrendingUp : forecast.trend === 'down' ? TrendingDown : TrendingFlat;
+  const TrendIcon = forecast.trend === 'up' ? TrendingUp : forecast.trend === 'down' ? TrendingDown : Minus;
 
   const metricName = forecast.metric.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
   const horizonText = forecast.horizon === '7d' ? '7d' : '30d';

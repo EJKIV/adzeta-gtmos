@@ -5,7 +5,7 @@
 
 // Command Intent parsed from natural language
 export interface CommandIntent {
-  action: 'research' | 'enrich' | 'campaign' | 'sequence' | 'analyze' | 'export';
+  action: 'research' | 'enrich' | 'campaign' | 'sequence' | 'analyze' | 'export' | 'dashboard' | 'pipeline' | 'forecast' | 'kpi' | 'help' | 'status';
   icp?: {
     titles?: string[];
     industries?: string[];
@@ -30,6 +30,7 @@ export interface CommandIntent {
   query?: string;
   rawInput: string;
   confidence: number;
+  timeRange?: 'today' | 'week' | 'month' | 'quarter';
 }
 
 // Prospect with scoring

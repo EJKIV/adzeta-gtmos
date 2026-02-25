@@ -86,7 +86,7 @@ export default function NavSidebar({ children }: NavSidebarProps) {
   const contentMargin = isCollapsed ? 'md:ml-16' : 'md:ml-64';
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
       {/* Mobile Overlay */}
       <AnimatePresence>
         {isMobileOpen && (
@@ -101,15 +101,15 @@ export default function NavSidebar({ children }: NavSidebarProps) {
       </AnimatePresence>
 
       {/* Mobile Header */}
-      <div className="fixed top-0 left-0 right-0 h-14 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 z-30 flex items-center px-4 md:hidden">
+      <div className="fixed top-0 left-0 right-0 h-14 bg-[#0a0a0a]/95 backdrop-blur-xl border-b border-[#3a3a3e] z-30 flex items-center px-4 md:hidden">
         <button
           onClick={() => setIsMobileOpen(!isMobileOpen)}
-          className="p-2 -ml-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+          className="p-2 -ml-2 rounded-lg text-[#a1a1a6] hover:text-[#f5f5f7] hover:bg-[#1a1a1c] transition-colors"
           aria-label="Toggle menu"
         >
           {isMobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
-        <span className="ml-3 font-semibold text-slate-100">GTM Command Center</span>
+        <span className="ml-3 font-semibold text-[#f5f5f7]">GTM Command Center</span>
       </div>
 
       {/* Sidebar */}
@@ -120,24 +120,24 @@ export default function NavSidebar({ children }: NavSidebarProps) {
           width: isMobile ? 280 : undefined,
         }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className={`fixed top-0 left-0 h-screen bg-slate-900 border-r border-slate-800 z-50 ${
+        className={`fixed top-0 left-0 h-screen bg-[#0a0a0a] border-r border-[#3a3a3e] z-50 ${
           isMobile ? 'w-[280px]' : sidebarWidth
         }`}
       >
         {/* Header */}
-        <div className="h-14 border-b border-slate-800 flex items-center justify-between px-4">
+        <div className="h-14 border-b border-[#3a3a3e] flex items-center justify-between px-4">
           <Link
             href="/"
             className={`flex items-center gap-3 ${isCollapsed && !isMobile ? 'justify-center w-full' : ''}`}
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#e958a1] to-[#8f76f5] flex items-center justify-center shrink-0">
               <span className="text-white font-bold text-sm">GTM</span>
             </div>
             {(!isCollapsed || isMobile) && (
               <motion.span
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="font-semibold text-slate-100 truncate"
+                className="font-semibold text-[#f5f5f7] truncate"
               >
                 Command Center
               </motion.span>
@@ -148,7 +148,7 @@ export default function NavSidebar({ children }: NavSidebarProps) {
           {!isMobile && (
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-1.5 rounded-md text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-md text-[#5a5a5d] hover:text-[#a1a1a6] hover:bg-[#1a1a1c] transition-colors"
               aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {isCollapsed ? (
@@ -176,8 +176,8 @@ export default function NavSidebar({ children }: NavSidebarProps) {
                   ${isCollapsed && !isMobile ? 'justify-center' : ''}
                   ${
                     isActive
-                      ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                      ? 'bg-[#de347f]/10 text-[#de347f] border border-[#de347f]/20'
+                      : 'text-[#a1a1a6] hover:text-[#f5f5f7] hover:bg-[#1a1a1c]'
                   }
                 `}
               >
@@ -185,13 +185,13 @@ export default function NavSidebar({ children }: NavSidebarProps) {
                 {isActive && (
                   <motion.div
                     layoutId="activeNav"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b from-[#de347f] to-[#8f76f5] rounded-r-full"
                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                   />
                 )}
 
                 {/* Icon */}
-                <span className={`${isActive ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-400'}`}>
+                <span className={`${isActive ? 'text-[#de347f]' : 'text-[#5a5a5d] group-hover:text-[#a1a1a6]'}`}>
                   {item.icon}
                 </span>
 
@@ -211,7 +211,7 @@ export default function NavSidebar({ children }: NavSidebarProps) {
                   <motion.span
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="px-2 py-0.5 text-xs font-medium bg-indigo-500/20 text-indigo-300 rounded-full"
+                    className="px-2 py-0.5 text-xs font-medium bg-[#de347f]/20 text-[#e958a1] rounded-full"
                   >
                     {item.badge}
                   </motion.span>
@@ -219,10 +219,10 @@ export default function NavSidebar({ children }: NavSidebarProps) {
 
                 {/* Tooltip for collapsed state */}
                 {isCollapsed && !isMobile && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-slate-200 text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-xl border border-slate-700">
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-[#1a1a1c] text-[#f5f5f7] text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-xl border border-[#3a3a3e]">
                     {item.label}
                     {item.badge && (
-                      <span className="ml-2 text-xs text-indigo-400">({item.badge})</span>
+                      <span className="ml-2 text-xs text-[#de347f]">({item.badge})</span>
                     )}
                   </div>
                 )}
@@ -236,15 +236,15 @@ export default function NavSidebar({ children }: NavSidebarProps) {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800"
+            className="absolute bottom-0 left-0 right-0 p-4 border-t border-[#3a3a3e]"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-                <span className="text-slate-400 text-xs font-medium">ME</span>
+              <div className="w-8 h-8 rounded-lg bg-[#1a1a1c] flex items-center justify-center shrink-0">
+                <span className="text-[#a1a1a6] text-xs font-medium">ME</span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-200 truncate">My Account</p>
-                <p className="text-xs text-slate-500 truncate">Pro Plan</p>
+                <p className="text-sm font-medium text-[#f5f5f7] truncate">My Account</p>
+                <p className="text-xs text-[#5a5a5d] truncate">Pro Plan</p>
               </div>
             </div>
           </motion.div>

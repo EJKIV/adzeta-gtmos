@@ -14,6 +14,8 @@ interface KpiCardProps {
   loading?: boolean;
   className?: string;
   index?: number; // For staggered animation
+  kpiKey?: string;
+  onDrillDown?: (key: string) => void;
 }
 
 // Simple sparkline SVG component
@@ -45,7 +47,7 @@ function MiniSparkline({ trend }: { trend: 'positive' | 'negative' | 'neutral' }
   );
 }
 
-export function KpiCard({ label, value, delta, deltaClass = 'neutral', trend, loading, className, index = 0 }: KpiCardProps) {
+export function KpiCard({ label, value, delta, deltaClass = 'neutral', trend, loading, className, index = 0, kpiKey, onDrillDown }: KpiCardProps) {
   if (loading) {
     return (
       <div 
@@ -115,8 +117,11 @@ export function KpiCard({ label, value, delta, deltaClass = 'neutral', trend, lo
     }
   };
   
+  const isExpanded = false; // visual cue managed by parent
+
   return (
     <div
+      onClick={() => kpiKey && onDrillDown?.(kpiKey)}
       className={cn(
         'group relative rounded-xl p-5 border',
         'transition-all duration-200 ease-out',
@@ -125,7 +130,8 @@ export function KpiCard({ label, value, delta, deltaClass = 'neutral', trend, lo
         'cursor-pointer',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
         'focus-visible:ring-blue-500 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950',
-        'opacity-0 animate-fade-in-up',
+        '',
+        kpiKey && onDrillDown && 'ring-0 hover:ring-2 hover:ring-[#de347f]/30',
         className
       )}
       style={{
@@ -134,15 +140,16 @@ export function KpiCard({ label, value, delta, deltaClass = 'neutral', trend, lo
         animationDelay: `${index * 100}ms`,
         animationFillMode: 'forwards',
       }}
-      role="region"
-      aria-label={`${label} KPI`}
+      role="button"
+      aria-label={`${label} KPI — click to expand`}
       tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' && kpiKey) onDrillDown?.(kpiKey); }}
     >
       {/* Background gradient on hover */}
       <div 
         className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
         style={{
-          background: 'linear-gradient(135deg, transparent 0%, rgba(59, 130, 246, 0.03) 100%)',
+          background: 'linear-gradient(135deg, transparent 0%, rgba(222, 52, 127, 0.03) 100%)',
         }}
       />
       

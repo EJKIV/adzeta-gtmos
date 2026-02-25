@@ -82,10 +82,10 @@ function ResearchCard({ job, onClick, onDismiss }: ResearchCardProps) {
       exit={{ opacity: 0, scale: 0.95 }}
       className={`
         relative rounded-xl border overflow-hidden transition-colors
-        ${job.status === 'error' ? 'border-red-500/50 bg-red-950/20' : 
-          job.status === 'completed' ? 'border-emerald-500/30 bg-emerald-950/10' :
-          'border-slate-700 bg-slate-900/50'}
-        ${job.status === 'completed' ? 'cursor-pointer hover:border-emerald-500/50' : ''}
+        ${job.status === 'error' ? 'border-red-300 bg-red-50' :
+          job.status === 'completed' ? 'border-emerald-200 bg-emerald-50/50' :
+          'border-slate-200 bg-white shadow-sm'}
+        ${job.status === 'completed' ? 'cursor-pointer hover:border-emerald-300' : ''}
       `}
     >
       <div className="p-4" onClick={handleClick}>
@@ -98,24 +98,24 @@ function ResearchCard({ job, onClick, onDismiss }: ResearchCardProps) {
             >
               {STATUS_ICONS[job.status]}
             </motion.span>
-            
+
             <div>
-              <div className="font-medium text-slate-200">
+              <div className="font-medium text-slate-800">
                 {job.query.length > 50 ? job.query.slice(0, 50) + '...' : job.query}
               </div>
-              <div className="flex items-center gap-2 text-sm text-slate-400">
+              <div className="flex items-center gap-2 text-sm text-slate-500">
                 <span className={`
-                  ${job.status === 'error' ? 'text-red-400' :
-                    job.status === 'completed' ? 'text-emerald-400' :
-                    'text-indigo-400'}
+                  ${job.status === 'error' ? 'text-red-500' :
+                    job.status === 'completed' ? 'text-emerald-600' :
+                    'text-[#de347f]'}
                 `}>
                   {STATUS_LABELS[job.status]}
                 </span>
-                
+
                 {job.status !== 'error' && job.status !== 'completed' && (
-                  <span className="text-slate-600">•</span>
+                  <span className="text-slate-300">•</span>
                 )}
-                
+
                 {job.status !== 'error' && job.status !== 'completed' && (
                   <span>
                     {progress.found} found
@@ -123,9 +123,9 @@ function ResearchCard({ job, onClick, onDismiss }: ResearchCardProps) {
                     {progress.scored > 0 && ` • ${progress.scored} scored`}
                   </span>
                 )}
-                
+
                 {job.status === 'completed' && (
-                  <span className="text-emerald-400">{progress.scored} prospects ready</span>
+                  <span className="text-emerald-600">{progress.scored} prospects ready</span>
                 )}
               </div>
             </div>
@@ -137,7 +137,7 @@ function ResearchCard({ job, onClick, onDismiss }: ResearchCardProps) {
                 e.stopPropagation();
                 onDismiss();
               }}
-              className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
+              className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
             >
               ✕
             </button>
@@ -155,15 +155,15 @@ function ResearchCard({ job, onClick, onDismiss }: ResearchCardProps) {
                   ${idx <= step && step >= 0
                     ? job.status === 'completed'
                       ? 'bg-emerald-500'
-                      : 'bg-indigo-500'
-                    : 'bg-slate-800'
+                      : 'bg-gradient-to-r from-[#de347f] to-[#8f76f5]'
+                    : 'bg-slate-100'
                   }
                 `}
               />
             ))}
           </div>
-          
-          <div className="flex justify-between text-xs text-slate-500">
+
+          <div className="flex justify-between text-xs text-slate-400">
             <span>Search</span>
             <span>Found</span>
             <span>Enriched</span>
@@ -178,7 +178,7 @@ function ResearchCard({ job, onClick, onDismiss }: ResearchCardProps) {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-3 p-3 rounded-lg bg-red-950/50 border border-red-500/30 text-sm text-red-300"
+              className="mt-3 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600"
             >
               {job.error}
             </motion.div>
@@ -193,13 +193,13 @@ function ResearchCard({ job, onClick, onDismiss }: ResearchCardProps) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="border-t border-slate-700 bg-slate-900/80"
+            className="border-t border-slate-200 bg-slate-50"
           >
             <div className="p-4 max-h-64 overflow-y-auto">
-              <div className="text-sm font-medium text-slate-300 mb-3">
+              <div className="text-sm font-medium text-slate-700 mb-3">
                 Live Results ({job.results.length} so far)
               </div>
-              
+
               <div className="space-y-2">
                 {job.results.slice(0, 10).map((prospect, idx) => (
                   <motion.div
@@ -207,36 +207,36 @@ function ResearchCard({ job, onClick, onDismiss }: ResearchCardProps) {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.05 }}
-                    className="flex items-center gap-3 p-2 rounded-lg bg-slate-800/50"
+                    className="flex items-center gap-3 p-2 rounded-lg bg-white border border-slate-100"
                   >
                     <div className={`
                       w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
-                      ${prospect.scoreGrade === 'A+' ? 'bg-emerald-500/20 text-emerald-400' :
-                        prospect.scoreGrade === 'A' ? 'bg-emerald-500/10 text-emerald-300' :
-                        prospect.scoreGrade === 'B+' ? 'bg-blue-500/20 text-blue-400' :
-                        'bg-slate-700 text-slate-400'}
+                      ${prospect.scoreGrade === 'A+' ? 'bg-emerald-50 text-emerald-600' :
+                        prospect.scoreGrade === 'A' ? 'bg-emerald-50 text-emerald-500' :
+                        prospect.scoreGrade === 'B+' ? 'bg-blue-50 text-blue-600' :
+                        'bg-slate-100 text-slate-500'}
                     `}>
                       {prospect.scoreGrade}
                     </div>
-                    
+
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-slate-200 truncate">
+                      <div className="text-sm text-slate-800 truncate">
                         {prospect.name}
                       </div>
-                      <div className="text-xs text-slate-400 truncate">
+                      <div className="text-xs text-slate-500 truncate">
                         {prospect.title} @ {prospect.company}
                       </div>
                     </div>
-                    
+
                     {prospect.signals.length > 0 && (
                       <div className="flex gap-1">
                         {prospect.signals.slice(0, 2).map((signal) => (
                           <span
                             key={signal.type}
-                            className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-300"
+                            className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600"
                           >
-                            {signal.type === 'funding' ? '💰' : 
-                             signal.type === 'hiring' ? '📈' : 
+                            {signal.type === 'funding' ? '💰' :
+                             signal.type === 'hiring' ? '📈' :
                              signal.type === 'growth' ? '🚀' : '🔥'}
                           </span>
                         ))}
@@ -245,9 +245,9 @@ function ResearchCard({ job, onClick, onDismiss }: ResearchCardProps) {
                   </motion.div>
                 ))}
               </div>
-              
+
               {job.results.length > 10 && (
-                <div className="mt-3 text-center text-sm text-slate-500">
+                <div className="mt-3 text-center text-sm text-slate-400">
                   +{job.results.length - 10} more prospects
                 </div>
               )}
@@ -268,10 +268,10 @@ export default function ResearchCards({ jobs, onJobClick, onDismissJob }: Resear
   const sortedJobs = [...jobs].sort((a, b) => {
     const aActive = a.status === 'pending' || a.status === 'running' || a.status === 'enriching' || a.status === 'scoring';
     const bActive = b.status === 'pending' || b.status === 'running' || b.status === 'enriching' || b.status === 'scoring';
-    
+
     if (aActive && !bActive) return -1;
     if (!aActive && bActive) return 1;
-    
+
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 
