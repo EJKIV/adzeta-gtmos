@@ -92,11 +92,14 @@ interface ChatCompletionOptions {
   message: string;
   /** Optional system prompt/role */
   system?: string;
-  /** Session key for thread persistence (creates new if not provided) */
-  sessionKey?: string;
+  /** 
+   * User ID for thread persistence (required for chat)
+   * Each user gets exactly one persistent thread with the agent
+   */
+  userId: string;
   /** AbortSignal for cancellation/timeout (defaults to 60s timeout) */
   signal?: AbortSignal;
-  /** Optional context/prior messages */
+  /** Optional context/prior messages (usually leave empty - thread handles context) */
   context?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
@@ -105,7 +108,7 @@ interface ChatCompletionChunk {
   content: string;
   /** Whether this is the final chunk */
   done: boolean;
-  /** Session key for thread persistence (returned in first chunk) */
+  /** Session key for this user's persistent thread (returned in first chunk) */
   sessionKey?: string;
 }
 
@@ -143,12 +146,27 @@ function parseSSEChunk(chunk: string): string | null {
  * Stream chat completion from OpenClaw agent
  * Async generator that yields content deltas as they arrive
  * 
+ * DESIGN: Personal Assistant Model
+ * - 1 thread per user (persistent across sessions)
+ * - Thread keyed by userId
+ * - Conversation history accumulates indefinitely
+ * 
  * @example
  * ```typescript
- * for await (const chunk of streamChatCompletion({ message: 'Hello' })) {
- *   if (!chunk.done) {
- *     process.stdout.write(chunk.content);
- *   }
+ * // Research request - thread maintains all prior context
+ * for await (const chunk of streamChatCompletion({ 
+ *   userId: 'user_123',
+ *   message: 'Find me CMOs at Series B fintechs' 
+ * })) {
+ *   if (!chunk.done) process.stdout.write(chunk.content);
+ * }
+ * 
+ * // Follow-up - agent remembers prior research
+ * for await (const chunk of streamChatCompletion({ 
+ *   userId: 'user_123',
+ *   message: 'Create a campaign from those prospects' // "those" = referenced
+ * })) {
+ *   // Agent knows which prospects (from prior message in thread)
  * }
  * ```
  */
@@ -161,7 +179,10 @@ export async function* streamChatCompletion(
     );
   }
 
-  const { message, system, sessionKey, context } = options;
+  const { message, system, userId, context } = options;
+  
+  // Generate session key from userId for persistent thread per user
+  const sessionKey = `user_${userId}`;
   
   // Create abort signal with default timeout if not provided
   const signal = options.signal || AbortSignal.timeout(DEFAULT_CHAT_TIMEOUT);
@@ -184,14 +205,8 @@ export async function* streamChatCompletion(
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${OPENCLAW_GATEWAY_TOKEN}`,
     'Accept': 'text/event-stream',
+    'x-openclaw-session-key': sessionKey,
   };
-
-  // Add session key for thread persistence if provided
-  if (sessionKey) {
-    headers['x-openclaw-session-key'] = sessionKey;
-  }
-
-  let responseSessionKey: string | undefined;
 
   try {
     const response = await fetch(`${OPENCLAW_GATEWAY_URL}/v1/chat/completions`, {
@@ -205,9 +220,6 @@ export async function* streamChatCompletion(
       const errorText = await response.text();
       throw new Error(`OpenClaw chat completion failed: ${response.status} ${errorText}`);
     }
-
-    // Extract session key from response headers for thread persistence
-    responseSessionKey = response.headers.get('x-openclaw-session-key') || undefined;
 
     const reader = response.body?.getReader();
     if (!reader) {
@@ -242,7 +254,8 @@ export async function* streamChatCompletion(
           yield { 
             content, 
             done: false,
-            ...(isFirstChunk && responseSessionKey ? { sessionKey: responseSessionKey } : {}),
+            // Return session key in first chunk so caller can track it
+            ...(isFirstChunk ? { sessionKey } : {}),
           };
           isFirstChunk = false;
         }
@@ -274,24 +287,44 @@ export async function* streamChatCompletion(
 /**
  * Convenience function for one-shot chat without streaming
  * Collects all chunks and returns complete response
+ * 
+ * @param message - User message
+ * @param userId - Required user ID for thread persistence
+ * @param options - Optional system prompt and AbortSignal
+ * @returns Complete response content and thread session key
+ * 
+ * @example
+ * ```typescript
+ * // Simple query - uses user's persistent thread
+ * const { content } = await chatWithAgent('What campaigns are active?', 'user_123');
+ * 
+ * // With custom system prompt
+ * const { content } = await chatWithAgent(
+ *   'Analyze my reply rates', 
+ *   'user_123',
+ *   { system: 'You are a GTM analytics expert' }
+ * );
+ * ```
  */
 export async function chatWithAgent(
   message: string,
-  options?: Omit<ChatCompletionOptions, 'message'>
-): Promise<{ content: string; sessionKey?: string }> {
+  userId: string,
+  options?: { system?: string; signal?: AbortSignal }
+): Promise<{ content: string; sessionKey: string }> {
   const chunks: string[] = [];
-  let sessionKey: string | undefined;
 
-  for await (const chunk of streamChatCompletion({ message, ...options })) {
+  for await (const chunk of streamChatCompletion({ 
+    message, 
+    userId,
+    system: options?.system,
+    signal: options?.signal 
+  })) {
     if (chunk.done) break;
     chunks.push(chunk.content);
-    if (chunk.sessionKey) {
-      sessionKey = chunk.sessionKey;
-    }
   }
 
   return {
     content: chunks.join(''),
-    sessionKey,
+    sessionKey: `user_${userId}`,
   };
 }
