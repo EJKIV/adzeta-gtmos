@@ -23,32 +23,75 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Debug - Check token
+        run: |
+          echo "Token length: ${#SUPABASE_ACCESS_TOKEN}"
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "❌ SUPABASE_ACCESS_TOKEN is empty!"
+            exit 1
+          else
+            echo "✅ Token is set (length: ${#SUPABASE_ACCESS_TOKEN})"
+          fi
+
       - name: Install Supabase CLI
-        run: npm install -g supabase
+        run: |
+          echo "Installing Supabase CLI..."
+          npm install -g supabase
+          echo "Supabase CLI version:"
+          supabase --version || echo "CLI not found in PATH"
 
       - name: Link to Supabase project
-        run: supabase link --project-id $SUPABASE_PROJECT_ID
+        run: |
+          echo "🔗 Linking to project $SUPABASE_PROJECT_ID..."
+          supabase link --project-id $SUPABASE_PROJECT_ID --debug || {
+            echo "❌ Link failed"
+            exit 1
+          }
+
+      - name: Test connection
+        run: |
+          echo "🧪 Testing database connection..."
+          supabase db ping || {
+            echo "❌ Cannot connect to database"
+            exit 1
+          }
 
       - name: Push migrations to production
         run: |
           echo "🔄 Pushing migrations to production..."
-          supabase db push --include-all
+          supabase db push --include-all 2>&1 || {
+            echo ""
+            echo "❌ Migration push failed"
+            echo "Common issues:"
+            echo "- Migration version mismatch"
+            echo "- Database permission issues"
+            echo "- Network connectivity"
+            exit 1
+          }
 
       - name: Verify migration success
         if: success()
         run: |
           echo "✅ Production migrations completed successfully"
           echo ""
-          echo "Migrations applied:"
+          echo "Migrations in repo:"
           ls -la migrations/
 
       - name: Notify on failure
         if: failure()
         run: |
-          echo "❌ Production migration failed!"
-          echo "Check the logs above for errors."
-          echo "You may need to:"
-          echo "1. Check SUPABASE_ACCESS_TOKEN is set in GitHub secrets"
-          echo "2. Verify Supabase project is accessible"
-          echo "3. Run migrations manually via Dashboard if needed"
+          echo ""
+          echo "═══════════════════════════════════════════════════"
+          echo "❌ PRODUCTION MIGRATION FAILED"
+          echo "═══════════════════════════════════════════════════"
+          echo ""
+          echo "Troubleshooting:"
+          echo "1. Verify SUPABASE_ACCESS_TOKEN is set in GitHub secrets"
+          echo "2. Check token has 'database migrations' permission"
+          echo "3. Verify project ID: hqhliqjpovtncrwbhlpx"
+          echo "4. Run locally: npx supabase db push"
+          echo ""
+          echo "Alternative: Run migrations via Dashboard SQL Editor"
+          echo "See: PRODUCTION_READINESS.md"
+          echo "═══════════════════════════════════════════════════"
           exit 1
