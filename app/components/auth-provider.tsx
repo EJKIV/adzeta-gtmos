@@ -31,12 +31,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const getUser = async () => {
       try {
-        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+        // First, try to get the session from cookies/storage
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (authError) {
-          console.error('Auth error:', authError);
+        if (sessionError) {
+          console.error('[Auth] Session error:', sessionError);
           if (isMounted) {
-            setError(authError.message);
+            setError(sessionError.message);
             setIsLoading(false);
           }
           return;
@@ -44,13 +45,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (!isMounted) return;
 
-        setUser(authUser);
+        if (session?.user) {
+          console.log('[Auth] Session found, user:', session.user.email);
+          setUser(session.user);
+        } else {
+          // Fallback: try getUser if session unavailable
+          const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+          
+          if (authError) {
+            console.error('[Auth] getUser error:', authError.message);
+            // Not setting error here - missing session is valid state (not logged in)
+            setUser(null);
+            setIsLoading(false);
+            return;
+          }
+
+          if (isMounted) {
+            setUser(authUser);
+          }
+        }
         
-        if (authUser) {
+        if (!isMounted) return;
+        
+        const currentUser = session?.user;
+        
+        if (currentUser) {
+          console.log('[Auth] Fetching profile for user:', currentUser.id);
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('is_employee, role')
-            .eq('id', authUser.id)
+            .eq('id', currentUser.id)
             .single();
           
           if (profileError && profileError.code !== 'PGRST116') {
