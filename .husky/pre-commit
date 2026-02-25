@@ -1,20 +1,27 @@
 #!/bin/sh
-# Pre-commit hook: Run migrations before committing
+# Pre-commit hook: Run local migrations before committing
 
 echo "🔍 Checking for new migrations..."
 
-# Check if any migration files are staged
+# Get list of staged migration files
 STAGED_MIGRATIONS=$(git diff --cached --name-only | grep "^migrations/.*\.sql$" || true)
 
 if [ -n "$STAGED_MIGRATIONS" ]; then
     echo "📁 Found staged migrations:"
     echo "$STAGED_MIGRATIONS"
     echo ""
-    echo "🔄 Running migrations against local database..."
+    echo "🔄 Running migrations against LOCAL database..."
+    echo "   (Production migrations must be run separately!)"
+    echo ""
     
     # Run migrations
     if node scripts/run-migrations.mjs; then
-        echo "✅ Migrations completed successfully"
+        echo "✅ Local migrations completed"
+        echo ""
+        echo "⚠️  REMEMBER: Production database needs manual migration!"
+        echo "   Run: npx supabase db push"
+        echo "   Or:  Copy SQL to Supabase Dashboard SQL Editor"
+        echo ""
     else
         echo "❌ Migration failed! Fix errors before committing."
         exit 1
@@ -23,15 +30,4 @@ else
     echo "✓ No new migrations to run"
 fi
 
-# Check if migrations folder has uncommitted changes
-MIGRATION_STATUS=$(git status --short migrations/ 2>/dev/null || true)
-if [ -n "$MIGRATION_STATUS" ]; then
-    echo "⚠️  Warning: You have uncommitted migration changes:"
-    echo "$MIGRATION_STATUS"
-    echo ""
-    echo "Consider committing migrations first, then code changes."
-fi
-
-echo ""
-echo "✅ Pre-commit checks passed"
 exit 0

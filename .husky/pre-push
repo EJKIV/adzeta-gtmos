@@ -13,30 +13,18 @@ if [ -n "$NEW_MIGRATIONS" ]; then
     echo "The following migrations will be pushed to production:"
     echo "$NEW_MIGRATIONS"
     echo ""
-    echo "REMEMBER: You must manually run these in production!"
+    echo "┌─────────────────────────────────────────────────────────────┐"
+    echo "│  REMINDER: Production Database Needs Manual Migration       │"
+    echo "├─────────────────────────────────────────────────────────────┤"
+    echo "│  Option 1: Supabase CLI                                     │"
+    echo "│    npx supabase db push                                   │"
+    echo "│                                                           │"
+    echo "│  Option 2: Supabase Dashboard                               │"
+    echo "│    SQL Editor → New Query → Paste migration SQL            │"
+    echo "│                                                           │"
+    echo "│  See: PRODUCTION_READINESS.md for full instructions       │"
+    echo "└─────────────────────────────────────────────────────────────┘"
     echo ""
-    echo "Options:"
-    echo "1. Supabase Dashboard → SQL Editor (copy/paste SQL)"
-    echo "2. supabase db push (if using CLI)"
-    echo "3. Copy from migrations/001_*.sql files"
-    echo ""
-    echo "See: PRODUCTION_READINESS.md for details"
-    echo ""
-    
-    # Ask for confirmation (only if interactive)
-    if [ -t 1 ]; then
-        printf "Continue with push? (y/N): "
-        read -r response
-        case "$response" in
-            [yY][eE][sS]|[yY]) 
-                echo "Proceeding with push..."
-                ;;
-            *)
-                echo "Push cancelled. Run migrations in production first."
-                exit 1
-                ;;
-        esac
-    fi
 fi
 
 exit 0
