@@ -1,8 +1,71 @@
-# Production Deployment Checklist
+# Production Deployment Guide
 
 ## Status: ✅ READY FOR PRODUCTION
 
-Last updated: 2026-02-24 20:45 EST
+Last updated: 2026-02-24 21:10 EST
+
+---
+
+## ⚠️ CRITICAL: Migration Workflow
+
+**Migrations DO NOT run automatically in production!**
+
+### Pre-Commit Flow (Husky Hooks)
+
+The following now runs automatically before each commit:
+
+1. ✅ Check for staged migration files
+2. ✅ Run `scripts/run-migrations.mjs` against local database
+3. ✅ Block commit if migrations fail
+
+### Pre-Push Flow
+
+Before pushing to GitHub:
+1. ⚠️ Warns about any migration files being pushed
+2. ⚠️ Reminds you to run migrations in production
+3. ⏸️ Asks for confirmation to continue
+
+---
+
+## Production Migration Steps
+
+**ALWAYS run migrations BEFORE deploying code:**
+
+### Option A: Supabase Dashboard (Recommended)
+
+1. Go to [Supabase Dashboard](https://app.supabase.io)
+2. Select your project
+3. Go to **SQL Editor** → **New Query**
+4. Copy SQL from migration files (e.g., `migrations/018_*.sql`)
+5. Run the SQL
+6. Verify via `SELECT * FROM public.profiles`
+
+### Option B: Supabase CLI
+
+```bash
+# Install CLI
+npm install -g supabase
+
+# Login
+supabase login
+
+# Link to production
+supabase link --project-ref hqhliqjpovtncrwbhlpx
+
+# Push migrations
+supabase db push
+```
+
+### Option C: REST API (Service Role)
+
+```bash
+# Run migrations via API (requires .env.local)
+cd ~/projects/gtm-os
+source .env.local
+node scripts/run-migrations.mjs
+```
+
+**Note**: This runs against whatever `SUPABASE_SERVICE_ROLE_KEY` is pointing to.
 
 ---
 
