@@ -1,4 +1,4 @@
-name: Migrate Production Database (REST API)
+name: Migrate Production Database
 
 on:
   push:
@@ -10,9 +10,6 @@ on:
 jobs:
   migrate:
     runs-on: ubuntu-latest
-    env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
     steps:
       - name: Checkout code
@@ -23,38 +20,61 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Debug - Check secrets
+      - name: Debug - List files
         run: |
-          echo "Checking secrets..."
-          if [ -z "$SUPABASE_URL" ]; then
-            echo "❌ SUPABASE_URL is not set"
-            echo "Add it at: Settings → Secrets → Actions → SUPABASE_URL"
+          echo "Current directory:"
+          ls -la
+          echo ""
+          echo "Scripts directory:"
+          ls -la scripts/
+          echo ""
+          echo "Migrations directory:"
+          ls -la migrations/
+
+      - name: Find and set Supabase credentials
+        run: |
+          # Try different secret names
+          if [ -n "${{ secrets.SUPABASE_URL }}" ]; then
+            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> $GITHUB_ENV
+            echo "✅ Found SUPABASE_URL"
+          elif [ -n "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ]; then
+            echo "SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> $GITHUB_ENV
+            echo "✅ Found NEXT_PUBLIC_SUPABASE_URL"
+          else
+            echo "❌ No Supabase URL secret found"
+            echo "Please add SUPABASE_URL to GitHub secrets"
             exit 1
           fi
-          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "❌ SUPABASE_SERVICE_ROLE_KEY is not set"
-            echo "Add it at: Settings → Secrets → Actions → SUPABASE_SERVICE_ROLE_KEY"
+
+          if [ -n "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> $GITHUB_ENV
+            echo "✅ Found SUPABASE_SERVICE_ROLE_KEY"
+          elif [ -n "${{ secrets.SUPABASE_SERVICE_KEY }}" ]; then
+            echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}" >> $GITHUB_ENV
+            echo "✅ Found SUPABASE_SERVICE_KEY"
+          else
+            echo "❌ No Supabase service key found"
+            echo "Please add SUPABASE_SERVICE_ROLE_KEY to GitHub secrets"
             exit 1
           fi
-          echo "✅ All required secrets are set"
-          echo "URL: ${SUPABASE_URL:0:30}..."
-          echo "Key length: ${#SUPABASE_SERVICE_ROLE_KEY}"
 
       - name: Run migrations
+        env:
+          SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          echo "🔄 Running migrations against production..."
+          echo "🔄 Running migrations..."
+          echo "URL: ${SUPABASE_URL:0:40}..."
+          echo "Key length: ${#SUPABASE_SERVICE_ROLE_KEY}"
           echo ""
-          node scripts/migrate-production.mjs 2>&1
+          node scripts/migrate-production.mjs
 
-      - name: Verify
+      - name: Success
         if: success()
         run: |
-          echo "✅ Migrations completed!"
-          echo ""
-          echo "Migrations applied:"
-          ls -1 migrations/*.sql | wc -l
+          echo "✅ All migrations completed successfully!"
 
-      - name: Error
+      - name: Failure
         if: failure()
         run: |
           echo ""
@@ -62,10 +82,10 @@ jobs:
           echo "❌ MIGRATION FAILED"
           echo "═══════════════════════════════════════════════════"
           echo ""
-          echo "Set these secrets in GitHub:"
-          echo "1. SUPABASE_URL (your project URL)"
-          echo "2. SUPABASE_SERVICE_ROLE_KEY (from Supabase Dashboard → Settings → API)"
+          echo "Required GitHub Secrets:"
+          echo "• SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL)"
+          echo "• SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY)"
           echo ""
-          echo "Dashboard URL: https://app.supabase.com/project/hqhliqjpovtncrwbhlpx/settings/api"
+          echo "Add them at:"
+          echo "https://github.com/EJKIV/adzeta-gtmos/settings/secrets/actions"
           echo "═══════════════════════════════════════════════════"
-          exit 1
