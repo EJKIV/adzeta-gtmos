@@ -271,3 +271,32 @@ CREATE POLICY "Users can update own funnels" ON funnels
 -- Policy: Only admin can delete
 CREATE POLICY "Only admin can delete funnels" ON funnels
     FOR DELETE USING (auth.uid()::text = user_id);
+-- Migration: Create research_jobs table
+-- Queue for research tasks with Apollo.io integration
+-- File: 021_create_research_jobs.sql
+\ir 021_create_research_jobs.sql
+
+-- Migration: Create prospects table  
+-- Enriched prospect data from Apollo.io and other sources
+-- File: 022_create_prospects.sql
+\ir 022_create_prospects.sql
+
+-- Migration: Create outreach_campaigns table
+-- Campaign definitions for multi-channel outreach
+-- File: 023_create_outreach_campaigns.sql
+\ir 023_create_outreach_campaigns.sql
+
+-- Migration: Create outreach_sequences table
+-- Multi-step email and touch point sequences
+-- File: 024_create_outreach_sequences.sql
+\ir 024_create_outreach_sequences.sql
+
+-- Migration: Create communications table
+-- All touch points including email, social, calls, etc.
+-- File: 025_create_communications.sql
+\ir 025_create_communications.sql
+
+-- Migration: Create command_history table
+-- Natural language command log for audit and learning
+-- File: 026_create_command_history.sql
+\ir 026_create_command_history.sql
