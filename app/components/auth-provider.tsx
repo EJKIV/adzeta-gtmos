@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { getSupabaseClient } from '@/lib/supabase-client';
 import { User } from '@supabase/supabase-js';
 
@@ -21,16 +21,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isEmployee, setIsEmployee] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initRef = useRef(false);
 
   // Get singleton client
   const supabase = getSupabaseClient();
 
   useEffect(() => {
+    // Prevent double initialization in StrictMode
+    if (initRef.current) return;
+    initRef.current = true;
+
     let isMounted = true;
     let subscription: { unsubscribe: () => void } | null = null;
+    let loadingTimeout: NodeJS.Timeout | null = null;
+
+    // Safety: force loading to false after 5 seconds max
+    loadingTimeout = setTimeout(() => {
+      if (isMounted && isLoading) {
+        console.log('[Auth] Loading timeout - forcing isLoading to false');
+        setIsLoading(false);
+      }
+    }, 5000);
 
     const getUser = async () => {
       try {
+        console.log('[Auth] Initializing...');
+        
         // First, try to get the session from cookies/storage
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
@@ -45,29 +61,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (!isMounted) return;
 
-        if (session?.user) {
-          console.log('[Auth] Session found, user:', session.user.email);
-          setUser(session.user);
-        } else {
-          // Fallback: try getUser if session unavailable
-          const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-          
-          if (authError) {
-            console.error('[Auth] getUser error:', authError.message);
-            // Not setting error here - missing session is valid state (not logged in)
-            setUser(null);
-            setIsLoading(false);
-            return;
-          }
+        let currentUser = session?.user || null;
 
+        if (currentUser) {
+          console.log('[Auth] Session found, user:', currentUser.email);
+          setUser(currentUser);
+        } else {
+          console.log('[Auth] No session found');
+          setUser(null);
           if (isMounted) {
-            setUser(authUser);
+            setIsLoading(false);
           }
+          return;
         }
         
         if (!isMounted) return;
-        
-        const currentUser = session?.user;
         
         if (currentUser) {
           console.log('[Auth] Fetching profile for user:', currentUser.id);
@@ -77,8 +85,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .eq('id', currentUser.id)
             .single();
           
-          if (profileError && profileError.code !== 'PGRST116') {
-            console.error('Profile fetch error:', profileError);
+          if (profileError) {
+            console.error('[Auth] Profile fetch error:', profileError);
+          } else {
+            console.log('[Auth] Profile loaded:', profile);
           }
           
           if (isMounted) {
@@ -90,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsLoading(false);
         }
       } catch (err) {
-        console.error('Unexpected auth error:', err);
+        console.error('[Auth] Unexpected error:', err);
         if (isMounted) {
           setError(err instanceof Error ? err.message : 'Authentication error');
           setIsLoading(false);
@@ -103,36 +113,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
+          console.log('[Auth] onAuthStateChange event:', event);
+          
           if (!isMounted) return;
 
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            console.log('[Auth] Fetching profile for user:', session.user.id);
-            const { data: profile, error: profileError } = await supabase
-              .from('profiles')
-              .select('is_employee, role')
-              .eq('id', session.user.id)
-              .single();
-            
-            if (profileError) {
-              console.error('[Auth] Profile fetch error:', profileError);
-            } else {
-              console.log('[Auth] Profile loaded:', profile);
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            if (session?.user) {
+              console.log('[Auth] User signed in:', session.user.email);
+              setUser(session.user);
+              
+              const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('is_employee, role')
+                .eq('id', session.user.id)
+                .single();
+              
+              if (profileError) {
+                console.error('[Auth] Profile fetch error:', profileError);
+              } else {
+                console.log('[Auth] Profile loaded:', profile);
+              }
+              
+              setIsEmployee(profile?.is_employee === true);
             }
-            
-            setIsEmployee(profile?.is_employee === true);
-          } else {
+          } else if (event === 'SIGNED_OUT') {
+            console.log('[Auth] User signed out');
+            setUser(null);
             setIsEmployee(false);
           }
           
+          // Always set loading to false after auth state change
           setIsLoading(false);
         }
       );
       
       subscription = sub;
     } catch (err) {
-      console.error('Auth state change error:', err);
+      console.error('[Auth] Auth state change error:', err);
       if (isMounted) {
         setIsLoading(false);
       }
@@ -140,11 +157,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       isMounted = false;
+      if (loadingTimeout) clearTimeout(loadingTimeout);
       if (subscription) {
         subscription.unsubscribe();
       }
     };
-  }, [supabase]);
+  }, [supabase, isLoading]);
 
   const signInWithEmail = async (email: string) => {
     const currentDomain = typeof window !== 'undefined' ? window.location.origin : 'https://gtm.adzeta.io';
@@ -170,6 +188,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearError = () => setError(null);
+
+  console.log('[Auth] Render - isLoading:', isLoading, 'user:', user?.email || 'null', 'isEmployee:', isEmployee);
 
   return (
     <AuthContext.Provider value={{ user, isLoading, isEmployee, error, signInWithEmail, signOut, clearError }}>
