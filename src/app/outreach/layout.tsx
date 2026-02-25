@@ -1,17 +1,14 @@
 /**
- * Outreach Route Group Layout
- * Wraps all outreach pages with consistent structure
+ * Outreach Layout
  */
-
-import { ReactNode } from 'react';
 
 export default function OutreachLayout({
   children,
 }: {
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-background">
+    <div>
       {children}
     </div>
   );
