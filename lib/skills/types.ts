@@ -71,7 +71,8 @@ export type ResponseBlock =
   | InsightBlock
   | ConfirmationBlock
   | ProgressBlock
-  | ErrorBlock;
+  | ErrorBlock
+  | TextBlock;
 
 // ---------------------------------------------------------------------------
 // Individual Block Types
@@ -143,4 +144,11 @@ export interface ErrorBlock {
   message: string;
   code?: string;
   suggestion?: string;
+}
+
+export interface TextBlock {
+  type: 'text';
+  content: string;
+  source?: string;
+  isStreaming?: boolean;
 }

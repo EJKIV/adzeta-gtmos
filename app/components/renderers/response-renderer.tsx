@@ -7,6 +7,7 @@ import { TableRenderer } from './table-renderer';
 import { InsightRenderer } from './insight-renderer';
 import { ConfirmationRenderer } from './confirmation-renderer';
 import { ProgressRenderer } from './progress-renderer';
+import { TextRenderer } from './text-renderer';
 
 function BlockRenderer({ block }: { block: ResponseBlock }) {
   switch (block.type) {
@@ -22,6 +23,8 @@ function BlockRenderer({ block }: { block: ResponseBlock }) {
       return <ConfirmationRenderer block={block} />;
     case 'progress':
       return <ProgressRenderer block={block} />;
+    case 'text':
+      return <TextRenderer block={block} />;
     case 'error':
       return (
         <div

@@ -182,7 +182,7 @@ export async function* streamChatCompletion(
   const { message, system, userId, context } = options;
   
   // Generate session key from userId for persistent thread per user
-  const sessionKey = `user_${userId}`;
+  const sessionKey = userId ? `gtm-os:user:${userId}` : 'gtm-os:anonymous';
   
   // Create abort signal with default timeout if not provided
   const signal = options.signal || AbortSignal.timeout(DEFAULT_CHAT_TIMEOUT);
@@ -325,6 +325,6 @@ export async function chatWithAgent(
 
   return {
     content: chunks.join(''),
-    sessionKey: `user_${userId}`,
+    sessionKey: userId ? `gtm-os:user:${userId}` : 'gtm-os:anonymous',
   };
 }
