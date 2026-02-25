@@ -13,6 +13,7 @@ const routes = [
   ['Comms', '/comms'],
   ['Pilot', '/pilot'],
   ['Research', '/research'],
+  ['Outreach', '/outreach'],
   ['Strategy', '/strategy'],
 ] as const;
 
