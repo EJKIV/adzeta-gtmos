@@ -21,15 +21,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isEmployee, setIsEmployee] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const initRef = useRef(false);
 
   // Get singleton client
   const supabase = getSupabaseClient();
 
   useEffect(() => {
-    // Prevent double initialization in StrictMode
-    if (initRef.current) return;
-    initRef.current = true;
+    // Skip if already initialized (user is set or init has run)
+    // Don't use initRef - it blocks re-initialization after auth callback
+    if (user !== null) {
+      console.log('[Auth] Skipping initialization - user already set:', user.email);
+      return;
+    }
 
     let isMounted = true;
     let subscription: { unsubscribe: () => void } | null = null;
