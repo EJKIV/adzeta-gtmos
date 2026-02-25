@@ -7,7 +7,7 @@ import { DashboardCommand } from '@/app/components/dashboard-command';
 import { ResponseThread, type ThreadEntry } from '@/app/components/response-thread';
 import { ActivityFeed } from '@/app/components/activity-feed';
 import { QuickActionsBar } from '@/app/components/quick-actions';
-import { executeFromText } from '@/lib/skills/executor';
+import type { SkillOutput, ResultContext } from '@/lib/skills/types';
 
 export default function Home() {
   return (
@@ -17,9 +17,22 @@ export default function Home() {
   );
 }
 
+function extractResultContext(output: SkillOutput): ResultContext | undefined {
+  for (const block of output.blocks) {
+    if (block.type === 'table' && block.rows.length > 0) {
+      const ids = block.rows.map((r) => r.id as string).filter(Boolean);
+      if (ids.length) {
+        return { prospectIds: ids, sourceSkillId: output.skillId, resultCount: ids.length };
+      }
+    }
+  }
+  return undefined;
+}
+
 function DashboardContent() {
   const [thread, setThread] = useState<ThreadEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [lastResultContext, setLastResultContext] = useState<ResultContext | undefined>();
 
   const handleCommand = useCallback(async (text: string) => {
     const commandId = `cmd-${Date.now()}`;
@@ -33,7 +46,17 @@ function DashboardContent() {
     setIsProcessing(true);
 
     try {
-      const output = await executeFromText(text, { source: 'ui' });
+      const res = await fetch('/api/agent/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, resultContext: lastResultContext }),
+      });
+      const output: SkillOutput = await res.json();
+
+      // Extract context from results for follow-up commands
+      const ctx = extractResultContext(output);
+      if (ctx) setLastResultContext(ctx);
+
       setThread((prev) => [
         ...prev,
         { id: `res-${Date.now()}`, type: 'response', output, timestamp: new Date() },
@@ -58,7 +81,7 @@ function DashboardContent() {
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [lastResultContext]);
 
   return (
     <div

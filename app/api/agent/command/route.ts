@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeSkill, executeFromText } from '@/lib/skills/executor';
+import type { ResultContext } from '@/lib/skills/types';
 
 function authenticate(req: NextRequest): boolean {
   const authHeader = req.headers.get('authorization');
@@ -25,19 +26,21 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const resultContext = body.resultContext as ResultContext | undefined;
+
     // Structured invocation: { skillId, params }
     if (typeof body.skillId === 'string') {
       const output = await executeSkill({
         skillId: body.skillId,
         params: (body.params as Record<string, unknown>) ?? {},
-        context: { source: 'api' },
+        context: { source: 'api', resultContext },
       });
       return NextResponse.json(output);
     }
 
     // Natural language invocation: { text }
     if (typeof body.text === 'string') {
-      const output = await executeFromText(body.text, { source: 'api' });
+      const output = await executeFromText(body.text, { source: 'api', resultContext });
       return NextResponse.json(output);
     }
 

@@ -83,7 +83,8 @@ export interface Prospect {
   source_job_id?: string;
   source_type: 'apollo' | 'manual' | 'upload' | 'api' | 'linkedin';
   source_url?: string;
-  
+  source_provider_id?: string;
+
   // Person data
   person_name: string;
   person_first_name?: string;

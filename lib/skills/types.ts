@@ -32,10 +32,18 @@ export interface SkillInput {
   context: SkillContext;
 }
 
+export interface ResultContext {
+  prospectIds?: string[];
+  sourceSkillId?: string;
+  resultCount?: number;
+  entityId?: string;
+}
+
 export interface SkillContext {
   userId?: string;
   source: 'ui' | 'api' | 'autonomous';
   sessionId?: string;
+  resultContext?: ResultContext;
 }
 
 export interface SkillOutput {

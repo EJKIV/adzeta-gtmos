@@ -14,7 +14,10 @@ import { matchSkill } from '@/lib/nlp/command-parser';
 import './handlers/analytics-pipeline';
 import './handlers/analytics-kpi';
 import './handlers/research-search';
+import './handlers/research-enrich';
 import './handlers/intel-recommendations';
+import './handlers/workflow-campaign';
+import './handlers/workflow-export';
 import './handlers/system-help';
 
 /**
@@ -62,13 +65,19 @@ export async function executeFromText(
   const intent = parseCommand(text);
   const matched = matchSkill(intent);
 
+  const rc = context.resultContext;
+
   if (!matched) {
     // Try pattern matching directly from registry
     const patternMatch = skillRegistry.findByPattern(text);
     if (patternMatch) {
       return executeSkill({
         skillId: patternMatch.skill.id,
-        params: { query: text, intent },
+        params: {
+          query: text, intent,
+          ...(rc?.prospectIds && { prospectIds: rc.prospectIds }),
+          ...(rc?.entityId && { entityId: rc.entityId }),
+        },
         context,
       });
     }
@@ -89,7 +98,11 @@ export async function executeFromText(
 
   return executeSkill({
     skillId: matched.skillId,
-    params: { ...matched.params, query: text, intent },
+    params: {
+      ...matched.params, query: text, intent,
+      ...(rc?.prospectIds && { prospectIds: rc.prospectIds }),
+      ...(rc?.entityId && { entityId: rc.entityId }),
+    },
     context,
   });
 }

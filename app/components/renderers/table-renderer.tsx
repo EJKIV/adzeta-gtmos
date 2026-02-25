@@ -6,12 +6,18 @@ import type { TableBlock } from '@/lib/skills/types';
 function formatCell(value: unknown, format?: string): React.ReactNode {
   const str = String(value ?? '');
   if (format === 'badge') {
+    const lower = str.toLowerCase();
+    let bg = 'rgba(222, 52, 127, 0.08)';
+    let fg = '#de347f';
+    if (lower === 'stored') { bg = 'rgba(22, 163, 74, 0.08)'; fg = '#16a34a'; }
+    else if (lower === 'enriched') { bg = 'rgba(59, 130, 246, 0.08)'; fg = '#3b82f6'; }
+    else if (lower === 'sample') { bg = 'rgba(245, 158, 11, 0.08)'; fg = '#f59e0b'; }
     return (
       <span
         className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
         style={{
-          backgroundColor: 'rgba(222, 52, 127, 0.08)',
-          color: '#de347f',
+          backgroundColor: bg,
+          color: fg,
         }}
       >
         {str}

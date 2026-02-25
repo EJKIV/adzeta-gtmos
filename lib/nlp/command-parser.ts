@@ -601,6 +601,10 @@ export function matchSkill(
     analyze: 'analytics.kpi_detail',
     help: 'system.help',
     research: 'research.prospect_search',
+    enrich: 'research.enrich_prospects',
+    campaign: 'workflow.create_campaign',
+    sequence: 'workflow.create_campaign',
+    export: 'workflow.export_results',
   };
 
   const skillId = INTENT_TO_SKILL[intent.action];

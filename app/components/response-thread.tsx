@@ -22,6 +22,7 @@ const STARTER_COMMANDS = [
   { label: 'Show pipeline health', command: 'show pipeline health' },
   { label: 'Find CMOs at fintech', command: 'find CMOs at fintech companies' },
   { label: 'What should I focus on?', command: 'what should I focus on?' },
+  { label: 'Show all skills', command: 'help' },
 ];
 
 export function ResponseThread({ entries, onFollowUp }: ResponseThreadProps) {
