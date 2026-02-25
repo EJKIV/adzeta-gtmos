@@ -9,7 +9,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   getUserPreferences,
   storeFeedback,
@@ -35,8 +35,11 @@ interface CacheEntry {
   timestamp: number;
 }
 
-// Module-level singleton for user ID - prevents multiple components from generating different IDs
+// Module-level singletons - prevent duplicate fetches across component instances
 let moduleUserId: string | null = null;
+let moduleFetchPromise: Promise<PreferenceModel | null> | null = null;
+let moduleLastFetchTime = 0;
+const FETCH_DEDUP_MS = 100; // Deduplicate fetches within 100ms
 
 // Generate or get user ID
 function getUserId(): string {
@@ -90,6 +93,48 @@ function saveCache(userId: string, model: PreferenceModel): void {
   }
 }
 
+// Module-level fetch with deduplication
+async function fetchPreferencesWithDedup(userId: string): Promise<PreferenceModel | null> {
+  const now = Date.now();
+  
+  // Return existing promise if fetch is in progress
+  if (moduleFetchPromise && (now - moduleLastFetchTime) < FETCH_DEDUP_MS) {
+    return moduleFetchPromise;
+  }
+  
+  moduleLastFetchTime = now;
+  
+  moduleFetchPromise = (async () => {
+    try {
+      const response = await fetch(`/api/users/${userId}/preferences`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          // No preferences yet, use defaults
+          return {
+            user_id: userId,
+            card_order: DEFAULT_CARD_ORDER,
+            updated_at: new Date().toISOString(),
+          };
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return {
+        user_id: data.user_id || userId,
+        card_order: data.card_order || DEFAULT_CARD_ORDER,
+        updated_at: data.updated_at || new Date().toISOString(),
+      };
+    } catch (err) {
+      console.error('Failed to fetch preferences:', err);
+      return null;
+    }
+  })();
+  
+  return moduleFetchPromise;
+}
+
 export interface PersonalizationState {
   userId: string;
   cardOrder: CardType[];
@@ -111,67 +156,58 @@ export function useSimplePersonalization(): PersonalizationState {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Fetch preferences
-  const fetchPreferences = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      
-      // Try cache first
+  // Initial fetch - only runs once per session due to module-level dedup
+  useEffect(() => {
+    let cancelled = false;
+    
+    async function loadPreferences() {
+      // Check cache first
       const cached = loadCache(userId);
-      if (cached) {
+      if (cached && !cancelled) {
         setCardOrder(cached.card_order);
         setIsLoading(false);
-        // Still fetch in background for freshness
       }
       
-      // Fetch from API
-      const response = await fetch(`/api/users/${userId}/preferences`);
+      // Fetch from API (with deduplication)
+      const model = await fetchPreferencesWithDedup(userId);
       
-      if (!response.ok) {
-        if (response.status === 404) {
-          // No preferences yet, use defaults
-          const defaultModel = {
-            user_id: userId,
-            card_order: DEFAULT_CARD_ORDER,
-            updated_at: new Date().toISOString(),
-          };
-          setCardOrder(DEFAULT_CARD_ORDER);
-          saveCache(userId, defaultModel);
-          setError(null);
-          return;
-        }
-        throw new Error(`HTTP ${response.status}`);
+      if (cancelled) return;
+      
+      if (model) {
+        setCardOrder(model.card_order);
+        saveCache(userId, model);
+        setError(null);
+      } else {
+        setError('Failed to load preferences');
+        setCardOrder(DEFAULT_CARD_ORDER);
       }
       
-      const data = await response.json();
-      const model: PreferenceModel = {
-        user_id: data.user_id || userId,
-        card_order: data.card_order || DEFAULT_CARD_ORDER,
-        updated_at: data.updated_at || new Date().toISOString(),
-      };
-      
+      setIsLoading(false);
+    }
+    
+    loadPreferences();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+  
+  // Refresh function - forces new fetch
+  const refresh = useCallback(async () => {
+    // Clear the module fetch promise to allow new fetch
+    moduleFetchPromise = null;
+    
+    const model = await fetchPreferencesWithDedup(userId);
+    
+    if (model) {
       setCardOrder(model.card_order);
       saveCache(userId, model);
       setError(null);
-    } catch (err) {
-      console.error('Failed to fetch preferences:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      // Use defaults on error
-      setCardOrder(DEFAULT_CARD_ORDER);
-    } finally {
-      setIsLoading(false);
+    } else {
+      setError('Failed to refresh preferences');
     }
+    setIsLoading(false);
   }, [userId]);
-  
-  // Initial fetch
-  useEffect(() => {
-    fetchPreferences();
-  }, [fetchPreferences]);
-  
-  // Refresh function
-  const refresh = useCallback(async () => {
-    await fetchPreferences();
-  }, [fetchPreferences]);
   
   // Record feedback
   const recordFeedback = useCallback(async (signalType: SignalType, section?: string) => {
