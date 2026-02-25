@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase-client';
 import { User } from '@supabase/supabase-js';
 
@@ -22,153 +22,100 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isEmployee, setIsEmployee] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get singleton client
   const supabase = getSupabaseClient();
 
+  // Effect 1: Initial auth check and onAuthStateChange subscription
   useEffect(() => {
-    // Skip if already initialized (user is set or init has run)
-    // Don't use initRef - it blocks re-initialization after auth callback
-    if (user !== null) {
-      console.log('[Auth] Skipping initialization - user already set:', user.email);
-      return;
-    }
-
-    let isMounted = true;
+    console.log('[Auth] Setting up auth subscription...');
+    
     let subscription: { unsubscribe: () => void } | null = null;
-    let loadingTimeout: NodeJS.Timeout | null = null;
 
-    // Safety: force loading to false after 5 seconds max
-    loadingTimeout = setTimeout(() => {
-      if (isMounted && isLoading) {
-        console.log('[Auth] Loading timeout - forcing isLoading to false');
+    const setupSubscription = async () => {
+      // Check existing session first
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        console.log('[Auth] Existing session found:', session.user.email);
+        setUser(session.user);
+        // Don't set isLoading false here - let profile fetch do it
+      } else {
+        console.log('[Auth] No existing session');
         setIsLoading(false);
       }
-    }, 5000);
 
-    const getUser = async () => {
-      try {
-        console.log('[Auth] Initializing...');
-        
-        // First, try to get the session from cookies/storage
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('[Auth] Session error:', sessionError);
-          if (isMounted) {
-            setError(sessionError.message);
-            setIsLoading(false);
-          }
-          return;
-        }
-
-        if (!isMounted) return;
-
-        let currentUser = session?.user || null;
-
-        if (currentUser) {
-          console.log('[Auth] Session found, user:', currentUser.email);
-          setUser(currentUser);
-        } else {
-          console.log('[Auth] No session found');
-          setUser(null);
-          if (isMounted) {
-            setIsLoading(false);
-          }
-          return;
-        }
-        
-        if (!isMounted) return;
-        
-        if (currentUser) {
-          console.log('[Auth] Fetching profile for user:', currentUser.id);
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('is_employee, role')
-            .eq('id', currentUser.id)
-            .single();
-          
-          if (profileError) {
-            console.error('[Auth] Profile fetch error:', profileError);
-          } else {
-            console.log('[Auth] Profile loaded:', profile);
-          }
-          
-          if (isMounted) {
-            const isEmp = profile?.is_employee === true;
-            console.log('[Auth] getUser - Setting isEmployee to:', isEmp);
-            setIsEmployee(isEmp);
-          }
-        }
-        
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      } catch (err) {
-        console.error('[Auth] Unexpected error:', err);
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : 'Authentication error');
-          setIsLoading(false);
-        }
-      }
-    };
-
-    getUser();
-
-    try {
+      // Subscribe to auth changes
       const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
           console.log('[Auth] onAuthStateChange event:', event);
           
-          if (!isMounted) return;
-
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
             if (session?.user) {
               console.log('[Auth] User signed in:', session.user.email);
               setUser(session.user);
-              
-              const { data: profile, error: profileError } = await supabase
-                .from('profiles')
-                .select('is_employee, role')
-                .eq('id', session.user.id)
-                .single();
-              
-              if (profileError) {
-                console.error('[Auth] Profile fetch error:', profileError);
-                setIsEmployee(false);
-              } else {
-                console.log('[Auth] Profile loaded:', profile);
-                const isEmp = profile?.is_employee === true;
-                console.log('[Auth] Setting isEmployee to:', isEmp, 'from profile.is_employee:', profile?.is_employee);
-                setIsEmployee(isEmp);
-              }
+              // Don't set isLoading false here - wait for profile
             }
           } else if (event === 'SIGNED_OUT') {
             console.log('[Auth] User signed out');
             setUser(null);
             setIsEmployee(false);
+            setIsLoading(false);
+          } else if (event === 'INITIAL_SESSION') {
+            // Initial session check done
+            console.log('[Auth] Initial session check complete');
           }
-          
-          // Always set loading to false after auth state change
-          setIsLoading(false);
         }
       );
       
       subscription = sub;
-    } catch (err) {
-      console.error('[Auth] Auth state change error:', err);
-      if (isMounted) {
-        setIsLoading(false);
-      }
-    }
+    };
+
+    setupSubscription();
 
     return () => {
-      isMounted = false;
-      if (loadingTimeout) clearTimeout(loadingTimeout);
+      console.log('[Auth] Cleaning up subscription');
       if (subscription) {
         subscription.unsubscribe();
       }
     };
-  }, [supabase, isLoading]);
+  }, [supabase]);
+
+  // Effect 2: Fetch profile when user changes
+  useEffect(() => {
+    if (!user) {
+      console.log('[Auth] No user, skipping profile fetch');
+      return;
+    }
+
+    console.log('[Auth] Fetching profile for user:', user.id);
+    setIsLoading(true);
+
+    const fetchProfile = async () => {
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('is_employee, role')
+          .eq('id', user.id)
+          .single();
+        
+        if (profileError) {
+          console.error('[Auth] Profile fetch error:', profileError);
+          setIsEmployee(false);
+        } else {
+          console.log('[Auth] Profile loaded:', profile);
+          const isEmp = profile?.is_employee === true;
+          console.log('[Auth] Setting isEmployee to:', isEmp);
+          setIsEmployee(isEmp);
+        }
+      } catch (err) {
+        console.error('[Auth] Profile fetch exception:', err);
+        setIsEmployee(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [supabase, user]);
 
   const signInWithEmail = async (email: string) => {
     const currentDomain = typeof window !== 'undefined' ? window.location.origin : 'https://gtm.adzeta.io';
