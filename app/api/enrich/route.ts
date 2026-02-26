@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: 'Enrichment service not configured',
-        hint: 'Set OPENCLAW_GATEWAY_URL and OPENCLAW_GATEWAY_TOKEN in environment variables.',
+        hint: 'Set OPENCLAW_GATEWAY_URL and either OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD in environment variables.',
       },
       { status: 503 }
     );

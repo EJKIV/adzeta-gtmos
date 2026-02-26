@@ -9,7 +9,26 @@
 // Environment configuration
 const OPENCLAW_GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL;
 const OPENCLAW_GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN;
+const OPENCLAW_GATEWAY_PASSWORD = process.env.OPENCLAW_GATEWAY_PASSWORD;
 const OPENCLAW_AGENT_ID = process.env.OPENCLAW_AGENT_ID;
+
+/**
+ * Build the Authorization header based on available credentials.
+ * - Token mode (default): Authorization: Bearer <token>
+ * - Password mode (Tailscale Funnel): Authorization: Basic <base64(password)>
+ */
+function getAuthHeader(): string {
+  if (OPENCLAW_GATEWAY_PASSWORD) {
+    const encoded = Buffer.from(OPENCLAW_GATEWAY_PASSWORD).toString('base64');
+    return `Basic ${encoded}`;
+  }
+  return `Bearer ${OPENCLAW_GATEWAY_TOKEN}`;
+}
+
+/** Returns true if any credential (token or password) is configured */
+function hasCredentials(): boolean {
+  return !!OPENCLAW_GATEWAY_TOKEN || !!OPENCLAW_GATEWAY_PASSWORD;
+}
 
 // Default timeout for chat completions (60 seconds)
 const DEFAULT_CHAT_TIMEOUT = 60000;
@@ -119,7 +138,7 @@ function diagnoseHttpStatus(status: number, body: string, context: string): Open
     return {
       kind: 'auth_failed',
       message: `OpenClaw authentication failed (${context}): ${status}`,
-      hint: `Gateway at ${gatewayUrl} rejected the token. Verify OPENCLAW_GATEWAY_TOKEN is correct and not expired.`,
+      hint: `Gateway at ${gatewayUrl} rejected credentials. Verify OPENCLAW_GATEWAY_TOKEN (token mode) or OPENCLAW_GATEWAY_PASSWORD (Funnel mode) is correct.`,
     };
   }
 
@@ -150,15 +169,15 @@ function logDiagnostic(diag: OpenClawDiagnostic) {
  * Requires gateway URL and token
  */
 export function isOpenClawAvailable(): boolean {
-  return !!OPENCLAW_GATEWAY_URL && !!OPENCLAW_GATEWAY_TOKEN;
+  return !!OPENCLAW_GATEWAY_URL && hasCredentials();
 }
 
 /**
  * Check if OpenClaw chat streaming is available
- * Requires gateway URL, token, AND agent ID
+ * Requires gateway URL, credentials (token or password), AND agent ID
  */
 export function isOpenClawChatAvailable(): boolean {
-  return !!OPENCLAW_GATEWAY_URL && !!OPENCLAW_GATEWAY_TOKEN && !!OPENCLAW_AGENT_ID;
+  return !!OPENCLAW_GATEWAY_URL && hasCredentials() && !!OPENCLAW_AGENT_ID;
 }
 
 interface OpenClawToolResponse<T = unknown> {
@@ -182,7 +201,7 @@ export async function invokeOpenClawTool<T = unknown>(
   if (!isOpenClawAvailable()) {
     return {
       success: false,
-      error: 'OpenClaw gateway not configured. Set OPENCLAW_GATEWAY_URL and OPENCLAW_GATEWAY_TOKEN',
+      error: 'OpenClaw gateway not configured. Set OPENCLAW_GATEWAY_URL and either OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD',
     };
   }
 
@@ -191,7 +210,7 @@ export async function invokeOpenClawTool<T = unknown>(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENCLAW_GATEWAY_TOKEN}`,
+        'Authorization': getAuthHeader(),
       },
       body: JSON.stringify({
         tool,
@@ -314,7 +333,7 @@ export async function* streamChatCompletion(
 ): AsyncGenerator<ChatCompletionChunk> {
   if (!isOpenClawChatAvailable()) {
     throw new Error(
-      'OpenClaw chat not configured. Set OPENCLAW_GATEWAY_URL, OPENCLAW_GATEWAY_TOKEN, and OPENCLAW_AGENT_ID'
+      'OpenClaw chat not configured. Set OPENCLAW_GATEWAY_URL, OPENCLAW_AGENT_ID, and either OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD'
     );
   }
 
@@ -342,7 +361,7 @@ export async function* streamChatCompletion(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${OPENCLAW_GATEWAY_TOKEN}`,
+    'Authorization': getAuthHeader(),
     'Accept': 'text/event-stream',
     'x-openclaw-session-key': sessionKey,
   };
