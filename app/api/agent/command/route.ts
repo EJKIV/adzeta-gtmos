@@ -39,9 +39,9 @@ async function authenticate(req: NextRequest): Promise<{ ok: boolean; userId?: s
         },
       }
     );
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      return { ok: true, userId: session.user.id };
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      return { ok: true, userId: user.id };
     }
   } catch {
     // Cookie parsing failed — fall through
