@@ -117,15 +117,30 @@ export function useDataFetch<T>(
     fetchData(false);
   }, [fetchData]);
 
-  // Background refresh interval
+  // Background refresh interval — pauses when tab is hidden
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0) return;
-    
-    const intervalId = setInterval(() => {
-      fetchData(true);
-    }, refreshInterval);
 
-    return () => clearInterval(intervalId);
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const start = () => {
+      if (intervalId) return;
+      intervalId = setInterval(() => fetchData(true), refreshInterval);
+    };
+    const stop = () => {
+      if (intervalId) { clearInterval(intervalId); intervalId = null; }
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) { stop(); } else { start(); fetchData(true); }
+    };
+
+    start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [refreshInterval, fetchData]);
 
   // Cleanup on unmount

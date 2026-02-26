@@ -152,3 +152,35 @@ export interface TextBlock {
   source?: string;
   isStreaming?: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Thread Entry (shared between UI + persistence)
+// ---------------------------------------------------------------------------
+
+export interface ThreadEntry {
+  id: string;
+  type: 'command' | 'response';
+  text?: string;
+  output?: SkillOutput;
+  timestamp: Date;
+}
+
+// ---------------------------------------------------------------------------
+// Status Events (SSE progress reporting)
+// ---------------------------------------------------------------------------
+
+export type StatusPhase =
+  | 'matching'
+  | 'executing'
+  | 'connecting'
+  | 'streaming'
+  | 'done';
+
+export interface StatusEvent {
+  phase: StatusPhase;
+  message: string;
+  skillId?: string;
+  skillName?: string;
+  detail?: string;       // reserved for future model step descriptions
+  ts: number;
+}

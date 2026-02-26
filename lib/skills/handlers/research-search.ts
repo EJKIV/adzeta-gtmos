@@ -9,6 +9,7 @@
 import { skillRegistry } from '../registry';
 import type { SkillInput, SkillOutput, ProgressBlock, TableBlock, InsightBlock } from '../types';
 import { getServerSupabase } from '@/lib/supabase-server';
+import { createApolloClientFromEnv } from '@/src/lib/apollo/client';
 
 const TABLE_COLUMNS = [
   { key: 'source', label: 'Source', format: 'badge' as const },
@@ -110,19 +111,61 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
   }
 
   // ── Step 2: Live search for new prospects ──────────────────────────
-  // NOTE: Apollo live search is disabled — the legacy apollo-client module
-  // was removed. Re-integrate via src/lib/mcp/apollo.ts when ready.
   const newRows: StoredRow[] = [];
-  const liveSearchFailed = false;
+  let liveSearchFailed = false;
 
   if (!hasApolloKey) {
-    // No API key
     blocks.push({
       type: 'insight',
       title: 'Live search not configured',
-      description: 'Set the live search API key to search for new prospects. Showing stored results below.',
+      description: 'Set APOLLO_API_KEY in .env.local to search for new prospects. Showing stored results below.',
       severity: 'warning',
     });
+  } else {
+    try {
+      const apollo = createApolloClientFromEnv();
+      const filters: Record<string, unknown> = { per_page: 25 };
+      if (titles.length) filters.person_titles = titles;
+      if (industries.length) filters.organization_industries = industries;
+
+      const result = await apollo.searchProspects(filters as Parameters<typeof apollo.searchProspects>[0]);
+
+      const gradeFromScore = (s: number) => {
+        if (s >= 95) return 'A+';
+        if (s >= 85) return 'A';
+        if (s >= 75) return 'B+';
+        if (s >= 65) return 'B';
+        if (s >= 50) return 'C';
+        return 'D';
+      };
+
+      for (const person of result.people) {
+        if (storedProviderIds.has(person.id)) continue;
+        const org = person.organization;
+        const score = 50
+          + (person.email || person.work_email ? 10 : 0)
+          + (person.linkedin_url ? 5 : 0)
+          + (org?.funding_stage ? 10 : 0)
+          + ((org?.employee_count ?? 0) > 50 ? 10 : 0);
+        const fullName = person.name
+          || [person.first_name, person.last_name].filter(Boolean).join(' ')
+          || 'Unknown';
+        newRows.push({
+          id: person.id,
+          source: 'Apollo',
+          name: fullName,
+          title: person.title || '',
+          company: org?.name || '',
+          industry: org?.industry || '',
+          score: Math.min(score, 100),
+          grade: gradeFromScore(Math.min(score, 100)),
+          source_provider_id: person.id,
+        });
+      }
+    } catch (err) {
+      console.error('[research.prospect_search] Apollo live search failed:', err);
+      liveSearchFailed = true;
+    }
   }
 
   // ── Step 3: Merge results ─────────────────────────────────────────

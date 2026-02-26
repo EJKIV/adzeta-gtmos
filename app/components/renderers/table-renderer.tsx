@@ -83,10 +83,7 @@ export function TableRenderer({ block }: { block: TableBlock }) {
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className="px-4 py-2.5 text-left text-xs font-semibold cursor-pointer select-none transition-colors"
-                  style={{ color: 'var(--color-text-tertiary)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-text-primary)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-tertiary)'; }}
+                  className="th-hover px-4 py-2.5 text-left text-xs font-semibold cursor-pointer select-none"
                 >
                   {col.label}
                   {sortKey === col.key && (
@@ -100,10 +97,8 @@ export function TableRenderer({ block }: { block: TableBlock }) {
             {paged.map((row, ri) => (
               <tr
                 key={ri}
-                className="border-b last:border-b-0 transition-colors"
+                className="tr-hover border-b last:border-b-0"
                 style={{ borderColor: 'var(--color-border-subtle)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(222,52,127,0.03)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
               >
                 {block.columns.map((col) => (
                   <td

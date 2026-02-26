@@ -25,7 +25,7 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
       blocks: [
         {
           type: 'insight',
-          title: 'OpenClaw Gateway not configured',
+          title: 'Zetty not configured',
           description:
             'Set OPENCLAW_GATEWAY_TOKEN (and optionally OPENCLAW_GATEWAY_URL) in .env.local to enable prospect enrichment.',
           severity: 'warning',
@@ -135,7 +135,7 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
   const blocks: SkillOutput['blocks'] = [
     {
       type: 'progress',
-      label: 'Enriching prospects via OpenClaw',
+      label: 'Enriching prospects via Zetty',
       current: enrichedCount,
       total: prospects.length,
       status: 'completed',
@@ -150,7 +150,7 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
     {
       type: 'insight',
       title: 'Enrichment complete',
-      description: `${enrichedCount} prospect${enrichedCount !== 1 ? 's' : ''} updated with enrichment data from OpenClaw.`,
+      description: `${enrichedCount} prospect${enrichedCount !== 1 ? 's' : ''} updated with enrichment data from Zetty.`,
       severity: enrichedCount > 0 ? 'success' : 'warning',
     },
   ];

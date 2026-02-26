@@ -1,57 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { executeSkill, executeFromText } from '@/lib/skills/executor';
-import type { ResultContext, SkillOutput } from '@/lib/skills/types';
+import { executeSkill, executeFromText, matchFromText } from '@/lib/skills/executor';
+import type { ResultContext, SkillOutput, StatusPhase, StatusEvent } from '@/lib/skills/types';
 import {
   isOpenClawChatAvailable,
   streamChatCompletion,
 } from '@/src/lib/research/openclaw-client';
-
-/**
- * Authenticate the request via:
- * 1. Bearer token (for OpenClaw / API callers)
- * 2. Supabase session cookie (for browser requests)
- * 3. Development bypass
- */
-async function authenticate(req: NextRequest): Promise<{ ok: boolean; userId?: string }> {
-  // 1. Bearer token (machine-to-machine)
-  const authHeader = req.headers.get('authorization');
-  if (authHeader?.startsWith('Bearer ')) {
-    const token = authHeader.slice(7);
-    const apiKey = process.env.OPENCLAW_API_KEY;
-    if (apiKey && token === apiKey) return { ok: true };
-  }
-
-  // 2. Supabase session cookie (browser)
-  try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set() {},
-          remove() {},
-        },
-      }
-    );
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      return { ok: true, userId: user.id };
-    }
-  } catch {
-    // Cookie parsing failed — fall through
-  }
-
-  // 3. Development bypass
-  if (process.env.NODE_ENV === 'development') return { ok: true };
-
-  return { ok: false };
-}
+import { authenticate } from '@/lib/api-auth';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -59,6 +13,10 @@ async function authenticate(req: NextRequest): Promise<{ ok: boolean; userId?: s
 
 function sseFrame(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+function statusFrame(phase: StatusPhase, message: string, extra?: Partial<StatusEvent>): string {
+  return sseFrame('status', { phase, message, ts: Date.now(), ...extra });
 }
 
 /**
@@ -161,19 +119,41 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        // 1. Execute local skill
-        const skillOutput = await executeFromText(userText, {
-          source: 'ui',
-          resultContext,
-          userId,
-        });
+        const skillContext = { source: 'ui' as const, resultContext, userId };
+
+        // 1. Match skill
+        controller.enqueue(encoder.encode(statusFrame('matching', 'Understanding your request...')));
+        const match = matchFromText(userText, skillContext);
+
+        // 2. Execute skill
+        let skillOutput: SkillOutput;
+        if (match) {
+          controller.enqueue(
+            encoder.encode(
+              statusFrame('executing', `Running ${match.skillName}...`, {
+                skillId: match.skillId,
+                skillName: match.skillName,
+              })
+            )
+          );
+          skillOutput = await executeSkill({
+            skillId: match.skillId,
+            params: match.params,
+            context: match.context,
+          });
+        } else {
+          controller.enqueue(encoder.encode(statusFrame('executing', 'Processing...')));
+          skillOutput = await executeFromText(userText, skillContext);
+        }
         controller.enqueue(encoder.encode(sseFrame('skill-result', skillOutput)));
 
-        // 2. Stream OpenClaw chat if available
+        // 3. Stream OpenClaw chat if available
         if (isOpenClawChatAvailable()) {
+          controller.enqueue(encoder.encode(statusFrame('connecting', 'Connecting to AI agent...')));
           try {
             const messages = buildOpenClawMessages(userText, skillOutput);
             const sessionUserId = userId || 'anonymous';
+            let firstChunk = true;
 
             for await (const chunk of streamChatCompletion({
               message: messages[0].content,
@@ -181,12 +161,16 @@ export async function POST(req: NextRequest) {
               signal: AbortSignal.timeout(60_000),
             })) {
               if (chunk.done) break;
+              if (firstChunk) {
+                controller.enqueue(encoder.encode(statusFrame('streaming', 'AI agent is analyzing...')));
+                firstChunk = false;
+              }
               controller.enqueue(
                 encoder.encode(sseFrame('openclaw-delta', { content: chunk.content }))
               );
             }
           } catch (err) {
-            const message = err instanceof Error ? err.message : 'OpenClaw unavailable';
+            const message = err instanceof Error ? err.message : 'Zetty unavailable';
             const hint = (err as Error & { hint?: string })?.hint;
             controller.enqueue(
               encoder.encode(
@@ -199,7 +183,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // 3. Done
+        // 4. Done
         controller.enqueue(encoder.encode(sseFrame('done', {})));
       } catch (err) {
         controller.enqueue(

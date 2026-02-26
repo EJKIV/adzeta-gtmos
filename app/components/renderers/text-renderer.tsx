@@ -3,22 +3,34 @@
 import type { TextBlock } from '@/lib/skills/types';
 
 /**
+ * Escape HTML entities to prevent XSS before applying markdown transforms.
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Minimal markdown-to-HTML: bold, italic, inline code, line breaks.
- * No external dependency needed for the subset OpenClaw typically returns.
+ * Input is sanitized first — safe against injected HTML/script tags.
  */
 function simpleMarkdown(src: string): string {
-  return src
+  return escapeHtml(src)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`(.+?)`/g, '<code class="px-1 py-0.5 rounded text-xs" style="background:var(--color-n100)">$1</code>')
     .replace(/\n/g, '<br/>');
 }
 
-export function TextRenderer({ block }: { block: TextBlock }) {
+export function TextRenderer({ block, inline }: { block: TextBlock; inline?: boolean }) {
   return (
     <div
-      className="rounded-xl border px-4 py-3"
-      style={{
+      className={inline ? 'px-0 py-1' : 'rounded-xl border px-4 py-3'}
+      style={inline ? {} : {
         borderColor: 'var(--color-border)',
         backgroundColor: 'var(--color-bg-elevated)',
       }}

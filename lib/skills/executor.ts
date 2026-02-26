@@ -7,18 +7,62 @@
 
 import { skillRegistry } from './registry';
 import type { SkillInput, SkillOutput, SkillContext } from './types';
-import { parseCommand } from '@/lib/nlp/command-parser';
-import { matchSkill } from '@/lib/nlp/command-parser';
+import { parseCommand, matchSkill } from '@/lib/nlp/command-parser';
 
 // Ensure all skill handlers are imported so they self-register
-import './handlers/analytics-pipeline';
-import './handlers/analytics-kpi';
-import './handlers/research-search';
-import './handlers/research-enrich';
-import './handlers/intel-recommendations';
-import './handlers/workflow-campaign';
-import './handlers/workflow-export';
-import './handlers/system-help';
+import './register-all';
+
+// ---------------------------------------------------------------------------
+// Skill Match (pre-execution metadata)
+// ---------------------------------------------------------------------------
+
+export interface SkillMatch {
+  skillId: string;
+  skillName: string;
+  params: Record<string, unknown>;
+  context: SkillContext;
+}
+
+/**
+ * Match a skill from free-form text without executing it.
+ * Returns metadata about the matched skill, or null if no match.
+ */
+export function matchFromText(text: string, context: SkillContext): SkillMatch | null {
+  const intent = parseCommand(text);
+  const matched = matchSkill(intent);
+  const rc = context.resultContext;
+
+  if (matched) {
+    const skill = skillRegistry.get(matched.skillId);
+    return {
+      skillId: matched.skillId,
+      skillName: skill?.name ?? matched.skillId,
+      params: {
+        ...matched.params, query: text, intent,
+        ...(rc?.prospectIds && { prospectIds: rc.prospectIds }),
+        ...(rc?.entityId && { entityId: rc.entityId }),
+      },
+      context,
+    };
+  }
+
+  // Try pattern matching directly from registry
+  const patternMatch = skillRegistry.findByPattern(text);
+  if (patternMatch) {
+    return {
+      skillId: patternMatch.skill.id,
+      skillName: patternMatch.skill.name,
+      params: {
+        query: text, intent,
+        ...(rc?.prospectIds && { prospectIds: rc.prospectIds }),
+        ...(rc?.entityId && { entityId: rc.entityId }),
+      },
+      context,
+    };
+  }
+
+  return null;
+}
 
 /**
  * Execute a skill by structured input (skillId + params).

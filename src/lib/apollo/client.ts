@@ -27,6 +27,7 @@ export interface ApolloPerson {
   seniority?: string;
   contact_stage?: string;
   owner?: string;
+  organization?: ApolloOrganization;
 }
 
 export interface ApolloOrganization {
@@ -156,7 +157,9 @@ export class ApolloClient {
    * Build URL with query parameters
    */
   private buildUrl(endpoint: string, params?: Record<string, unknown>): string {
-    const url = new URL(endpoint, this.config.baseUrl);
+    const base = this.config.baseUrl.replace(/\/$/, '');
+    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = new URL(`${base}${path}`);
     
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -263,7 +266,7 @@ export class ApolloClient {
    */
   async searchProspects(filters: ApolloSearchFilters): Promise<ApolloSearchResult> {
     const result = await this.request<ApolloSearchResult>(
-      '/mixed_people/search',
+      '/mixed_people/api_search',
       {
         method: 'POST',
         body: JSON.stringify({ ...filters }),
@@ -408,9 +411,9 @@ export function createApolloClientFromEnv(): ApolloClient {
   
   return new ApolloClient({
     apiKey,
-    baseUrl: process.env.APOLLO_BASE_URL,
-    timeout: process.env.APOLLO_TIMEOUT ? parseInt(process.env.APOLLO_TIMEOUT, 10) : undefined,
-    maxRetries: process.env.APOLLO_MAX_RETRIES ? parseInt(process.env.APOLLO_MAX_RETRIES, 10) : undefined,
+    ...(process.env.APOLLO_BASE_URL ? { baseUrl: process.env.APOLLO_BASE_URL } : {}),
+    ...(process.env.APOLLO_TIMEOUT ? { timeout: parseInt(process.env.APOLLO_TIMEOUT, 10) } : {}),
+    ...(process.env.APOLLO_MAX_RETRIES ? { maxRetries: parseInt(process.env.APOLLO_MAX_RETRIES, 10) } : {}),
   });
 }
 
