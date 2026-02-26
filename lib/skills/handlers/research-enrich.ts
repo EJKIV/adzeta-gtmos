@@ -8,7 +8,7 @@
 import { skillRegistry } from '../registry';
 import type { SkillInput, SkillOutput } from '../types';
 import { getServerSupabase } from '@/lib/supabase-server';
-import { invokeOpenClawTool, isOpenClawAvailable } from '@/lib/research/openclaw-client';
+import { invokeOpenClawTool, isOpenClawAvailable } from '@/src/lib/research/openclaw-client';
 
 const FOLLOW_UPS = [
   { label: 'Create campaign', command: 'create campaign for these prospects' },

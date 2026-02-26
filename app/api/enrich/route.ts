@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase-server';
-import { invokeOpenClawTool, isOpenClawAvailable } from '@/lib/research/openclaw-client';
+import { invokeOpenClawTool, isOpenClawAvailable } from '@/src/lib/research/openclaw-client';
 
 const MAX_PROSPECT_IDS = 50;
 

@@ -9,7 +9,6 @@
 import { skillRegistry } from '../registry';
 import type { SkillInput, SkillOutput, ProgressBlock, TableBlock, InsightBlock } from '../types';
 import { getServerSupabase } from '@/lib/supabase-server';
-import { invokeOpenClawTool, isOpenClawAvailable } from '@/lib/research/openclaw-client';
 
 const TABLE_COLUMNS = [
   { key: 'source', label: 'Source', format: 'badge' as const },
@@ -111,95 +110,12 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
   }
 
   // ── Step 2: Live search for new prospects ──────────────────────────
-  let newRows: StoredRow[] = [];
-  let liveSearchFailed = false;
+  // NOTE: Apollo live search is disabled — the legacy apollo-client module
+  // was removed. Re-integrate via src/lib/mcp/apollo.ts when ready.
+  const newRows: StoredRow[] = [];
+  const liveSearchFailed = false;
 
-  if (hasApolloKey) {
-    try {
-      const { ApolloMCP } = await import('@/lib/research/apollo-client');
-
-      const criteria: Record<string, unknown> = {};
-      if (titles.length) criteria.person_titles = titles;
-      if (industries.length) criteria.q_organization_keyword_tags = industries;
-
-      const response = await ApolloMCP.searchProspects(criteria as any, { perPage: 25 });
-      const people = response.people || [];
-
-      // Filter out already-stored prospects by source_provider_id
-      const newPeople = people.filter((p) => !storedProviderIds.has(p.id));
-
-      // Store new results in Supabase
-      if (supabase && newPeople.length > 0) {
-        const rows = newPeople.map((p) => ({
-          person_name: p.name || `${p.first_name} ${p.last_name}`,
-          person_first_name: p.first_name,
-          person_last_name: p.last_name,
-          person_email: p.email,
-          person_title: p.title,
-          person_seniority: p.seniority,
-          company_name: p.organization?.name,
-          company_domain: p.organization?.primary_domain,
-          company_industry: p.organization?.industries?.[0],
-          company_size: p.organization?.estimated_num_employees
-            ? String(p.organization.estimated_num_employees)
-            : undefined,
-          source_type: 'apollo' as const,
-          source_provider_id: p.id,
-          enrichment_status: 'raw' as const,
-          quality_score: 'b' as const,
-        }));
-
-        await supabase
-          .from('prospects')
-          .upsert(rows, { onConflict: 'source_provider_id', ignoreDuplicates: true })
-          .select('id');
-      }
-
-      // Build display rows for new results
-      newRows = newPeople.map((p) => ({
-        id: p.id,
-        source: 'New',
-        name: p.name || `${p.first_name} ${p.last_name}`,
-        title: p.title || '',
-        company: p.organization?.name || '',
-        industry: p.organization?.industries?.[0] || '',
-        score: 80,
-        grade: 'B+',
-        source_provider_id: p.id,
-      }));
-
-      // Fire async OpenClaw enrichment for new prospects
-      if (isOpenClawAvailable() && newPeople.length > 0) {
-        Promise.all(
-          newPeople.map((p) =>
-            invokeOpenClawTool('enrich_person', {
-              name: p.name || `${p.first_name} ${p.last_name}`,
-              email: p.email,
-              company: p.organization?.name,
-            }).then((enrichment) => {
-              if (supabase) {
-                supabase
-                  .from('prospects')
-                  .update({ enrichment_data: enrichment, enrichment_status: 'enriched' })
-                  .eq('source_provider_id', p.id);
-              }
-            }).catch(() => {}) // swallow individual failures
-          )
-        ).catch(() => {});
-      }
-    } catch (err) {
-      liveSearchFailed = true;
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('Live search failed:', errorMessage);
-
-      blocks.push({
-        type: 'insight',
-        title: 'Live search failed',
-        description: `${errorMessage}. Showing stored results below.`,
-        severity: 'critical',
-      });
-    }
-  } else {
+  if (!hasApolloKey) {
     // No API key
     blocks.push({
       type: 'insight',

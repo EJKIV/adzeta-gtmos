@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 import { executeSkill, executeFromText } from '@/lib/skills/executor';
 import type { ResultContext, SkillOutput } from '@/lib/skills/types';
 import {
@@ -6,15 +8,49 @@ import {
   streamChatCompletion,
 } from '@/src/lib/research/openclaw-client';
 
-function authenticate(req: NextRequest): boolean {
+/**
+ * Authenticate the request via:
+ * 1. Bearer token (for OpenClaw / API callers)
+ * 2. Supabase session cookie (for browser requests)
+ * 3. Development bypass
+ */
+async function authenticate(req: NextRequest): Promise<{ ok: boolean; userId?: string }> {
+  // 1. Bearer token (machine-to-machine)
   const authHeader = req.headers.get('authorization');
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.slice(7);
     const apiKey = process.env.OPENCLAW_API_KEY;
-    if (apiKey && token === apiKey) return true;
+    if (apiKey && token === apiKey) return { ok: true };
   }
-  if (process.env.NODE_ENV === 'development') return true;
-  return false;
+
+  // 2. Supabase session cookie (browser)
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set() {},
+          remove() {},
+        },
+      }
+    );
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      return { ok: true, userId: session.user.id };
+    }
+  } catch {
+    // Cookie parsing failed — fall through
+  }
+
+  // 3. Development bypass
+  if (process.env.NODE_ENV === 'development') return { ok: true };
+
+  return { ok: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -62,7 +98,8 @@ function buildOpenClawMessages(
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
-  if (!authenticate(req)) {
+  const auth = await authenticate(req);
+  if (!auth.ok) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -116,7 +153,8 @@ export async function POST(req: NextRequest) {
 
   const userText = body.text as string;
   const resultContext = body.resultContext as ResultContext | undefined;
-  const userId = (body.userId as string) || undefined;
+  // Prefer server-verified session userId over client-provided one
+  const userId = auth.userId || (body.userId as string) || undefined;
 
   const encoder = new TextEncoder();
 
