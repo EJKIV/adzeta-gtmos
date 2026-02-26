@@ -14,6 +14,137 @@ const OPENCLAW_AGENT_ID = process.env.OPENCLAW_AGENT_ID;
 // Default timeout for chat completions (60 seconds)
 const DEFAULT_CHAT_TIMEOUT = 60000;
 
+// ---------------------------------------------------------------------------
+// Error diagnostics — classifies network failures for prod debugging
+// ---------------------------------------------------------------------------
+
+type OpenClawErrorKind =
+  | 'not_configured'
+  | 'network_unreachable'
+  | 'connection_refused'
+  | 'dns_failed'
+  | 'timeout'
+  | 'auth_failed'
+  | 'gateway_error'
+  | 'unknown';
+
+interface OpenClawDiagnostic {
+  kind: OpenClawErrorKind;
+  message: string;
+  hint: string;
+}
+
+/**
+ * Classify a fetch error into an actionable diagnostic.
+ * Designed for Tailscale-tunnelled setups where the gateway lives on a
+ * private IP that is only reachable when the VPN is up.
+ */
+function diagnoseOpenClawError(error: unknown, context: string): OpenClawDiagnostic {
+  const gatewayUrl = OPENCLAW_GATEWAY_URL || '(not set)';
+  const raw = error instanceof Error ? error.message : String(error);
+  const code = (error as NodeJS.ErrnoException)?.code;
+  const cause = (error as { cause?: { code?: string } })?.cause;
+  const causeCode = cause?.code || code;
+
+  // Connection refused — gateway host is up but nothing listening on port
+  if (causeCode === 'ECONNREFUSED' || raw.includes('ECONNREFUSED')) {
+    return {
+      kind: 'connection_refused',
+      message: `OpenClaw gateway refused connection (${context})`,
+      hint: `Gateway at ${gatewayUrl} is not accepting connections. Verify the OpenClaw service is running on the host.`,
+    };
+  }
+
+  // Network unreachable / host unreachable — usually Tailscale is down
+  if (
+    causeCode === 'ENETUNREACH' ||
+    causeCode === 'EHOSTUNREACH' ||
+    causeCode === 'ENETDOWN' ||
+    raw.includes('ENETUNREACH') ||
+    raw.includes('EHOSTUNREACH')
+  ) {
+    return {
+      kind: 'network_unreachable',
+      message: `Cannot reach OpenClaw gateway (${context})`,
+      hint: `Network unreachable for ${gatewayUrl}. Check that Tailscale is connected and the gateway host is online.`,
+    };
+  }
+
+  // DNS failure
+  if (causeCode === 'ENOTFOUND' || raw.includes('ENOTFOUND')) {
+    return {
+      kind: 'dns_failed',
+      message: `DNS lookup failed for OpenClaw gateway (${context})`,
+      hint: `Cannot resolve hostname in ${gatewayUrl}. If using a Tailscale MagicDNS name, ensure Tailscale is connected.`,
+    };
+  }
+
+  // Timeout — could be Tailscale routing or gateway overloaded
+  if (
+    causeCode === 'ETIMEDOUT' ||
+    causeCode === 'ESOCKETTIMEDOUT' ||
+    raw.includes('ETIMEDOUT') ||
+    raw.includes('timed out') ||
+    (error instanceof Error && error.name === 'AbortError')
+  ) {
+    return {
+      kind: 'timeout',
+      message: `OpenClaw gateway timed out (${context})`,
+      hint: `Request to ${gatewayUrl} timed out. Possible causes: Tailscale connection is stale, gateway is overloaded, or firewall is dropping packets.`,
+    };
+  }
+
+  // Catch-all for generic fetch failures (Node 18+ wraps in TypeError with cause)
+  if (raw.includes('fetch failed') || raw.includes('Failed to fetch')) {
+    return {
+      kind: 'network_unreachable',
+      message: `Cannot connect to OpenClaw gateway (${context})`,
+      hint: `Fetch to ${gatewayUrl} failed. Check Tailscale status and ensure the gateway host is reachable.`,
+    };
+  }
+
+  // Fallback
+  return {
+    kind: 'unknown',
+    message: `OpenClaw error during ${context}: ${raw}`,
+    hint: `Gateway: ${gatewayUrl}. Check server logs for details.`,
+  };
+}
+
+/** Classify an HTTP status code from the gateway */
+function diagnoseHttpStatus(status: number, body: string, context: string): OpenClawDiagnostic {
+  const gatewayUrl = OPENCLAW_GATEWAY_URL || '(not set)';
+
+  if (status === 401 || status === 403) {
+    return {
+      kind: 'auth_failed',
+      message: `OpenClaw authentication failed (${context}): ${status}`,
+      hint: `Gateway at ${gatewayUrl} rejected the token. Verify OPENCLAW_GATEWAY_TOKEN is correct and not expired.`,
+    };
+  }
+
+  return {
+    kind: 'gateway_error',
+    message: `OpenClaw gateway returned ${status} (${context})`,
+    hint: `${gatewayUrl} responded with HTTP ${status}. Body: ${body.slice(0, 200)}`,
+  };
+}
+
+/** Log a diagnostic to the server console with structured context */
+function logDiagnostic(diag: OpenClawDiagnostic) {
+  console.error(
+    JSON.stringify({
+      service: 'openclaw',
+      kind: diag.kind,
+      message: diag.message,
+      hint: diag.hint,
+      gatewayUrl: OPENCLAW_GATEWAY_URL || null,
+      agentId: OPENCLAW_AGENT_ID || null,
+      ts: new Date().toISOString(),
+    })
+  );
+}
+
 /**
  * Check if basic OpenClaw tool invocation is available
  * Requires gateway URL and token
@@ -34,6 +165,8 @@ interface OpenClawToolResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
+  /** Actionable troubleshooting hint (e.g. "check Tailscale is connected") */
+  hint?: string;
 }
 
 /**
@@ -68,10 +201,13 @@ export async function invokeOpenClawTool<T = unknown>(
 
     if (!response.ok) {
       const errorText = await response.text();
+      const diag = diagnoseHttpStatus(response.status, errorText, `tool:${tool}`);
+      logDiagnostic(diag);
       return {
         success: false,
-        error: `OpenClaw tool invocation failed: ${response.status} ${errorText}`,
-      };
+        error: diag.message,
+        hint: diag.hint,
+      } as OpenClawToolResponse<T>;
     }
 
     const data = await response.json();
@@ -80,10 +216,13 @@ export async function invokeOpenClawTool<T = unknown>(
       data: data as T,
     };
   } catch (error) {
+    const diag = diagnoseOpenClawError(error, `tool:${tool}`);
+    logDiagnostic(diag);
     return {
       success: false,
-      error: `OpenClaw tool invocation error: ${error instanceof Error ? error.message : String(error)}`,
-    };
+      error: diag.message,
+      hint: diag.hint,
+    } as OpenClawToolResponse<T>;
   }
 }
 
@@ -218,7 +357,11 @@ export async function* streamChatCompletion(
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`OpenClaw chat completion failed: ${response.status} ${errorText}`);
+      const diag = diagnoseHttpStatus(response.status, errorText, 'chat');
+      logDiagnostic(diag);
+      const err = new Error(diag.message);
+      (err as Error & { hint: string }).hint = diag.hint;
+      throw err;
     }
 
     const reader = response.body?.getReader();
@@ -274,13 +417,15 @@ export async function* streamChatCompletion(
     yield { content: '', done: true };
 
   } catch (error) {
-    if (error instanceof Error) {
-      if (error.name === 'AbortError') {
-        throw new Error('OpenClaw chat completion timed out (60s)');
-      }
+    // Re-throw errors we already diagnosed (from the !response.ok path)
+    if (error instanceof Error && 'hint' in error) {
       throw error;
     }
-    throw new Error(`OpenClaw chat completion error: ${String(error)}`);
+    const diag = diagnoseOpenClawError(error, 'chat');
+    logDiagnostic(diag);
+    const err = new Error(diag.message);
+    (err as Error & { hint: string }).hint = diag.hint;
+    throw err;
   }
 }
 

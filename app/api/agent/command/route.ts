@@ -186,10 +186,13 @@ export async function POST(req: NextRequest) {
               );
             }
           } catch (err) {
+            const message = err instanceof Error ? err.message : 'OpenClaw unavailable';
+            const hint = (err as Error & { hint?: string })?.hint;
             controller.enqueue(
               encoder.encode(
                 sseFrame('openclaw-error', {
-                  message: err instanceof Error ? err.message : 'OpenClaw unavailable',
+                  message,
+                  ...(hint ? { hint } : {}),
                 })
               )
             );

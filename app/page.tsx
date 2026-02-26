@@ -124,9 +124,30 @@ function DashboardContent() {
               break;
             }
 
-            case 'openclaw-error':
-              // Silently degrade — user still has local skill blocks
+            case 'openclaw-error': {
+              const { message, hint } = JSON.parse(evt.data) as { message: string; hint?: string };
+              setThread((prev) =>
+                prev.map((entry) => {
+                  if (entry.id !== responseId || !entry.output) return entry;
+                  return {
+                    ...entry,
+                    output: {
+                      ...entry.output,
+                      blocks: [
+                        ...entry.output.blocks,
+                        {
+                          type: 'insight' as const,
+                          title: 'OpenClaw unavailable',
+                          description: hint || message,
+                          severity: 'warning' as const,
+                        },
+                      ],
+                    },
+                  };
+                })
+              );
               break;
+            }
 
             case 'done': {
               // Mark text block streaming as complete

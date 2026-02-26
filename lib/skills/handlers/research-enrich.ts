@@ -110,51 +110,65 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
   // Enrich each prospect via OpenClaw
   let enrichedCount = 0;
   let failedCount = 0;
+  let lastErrorHint: string | undefined;
 
   for (const prospect of prospects) {
-    try {
-      const enrichment = await invokeOpenClawTool('enrich_person', {
-        name: prospect.person_name,
-        email: prospect.person_email,
-        company: prospect.company_name,
-      });
+    const result = await invokeOpenClawTool('enrich_person', {
+      name: prospect.person_name,
+      email: prospect.person_email,
+      company: prospect.company_name,
+    });
 
+    if (result.success) {
       await supabase
         .from('prospects')
-        .update({ enrichment_data: enrichment, enrichment_status: 'enriched' })
+        .update({ enrichment_data: result, enrichment_status: 'enriched' })
         .eq('id', prospect.id);
 
       enrichedCount++;
-    } catch {
+    } else {
       failedCount++;
+      lastErrorHint = result.hint || result.error;
     }
+  }
+
+  const blocks: SkillOutput['blocks'] = [
+    {
+      type: 'progress',
+      label: 'Enriching prospects via OpenClaw',
+      current: enrichedCount,
+      total: prospects.length,
+      status: 'completed',
+    },
+    {
+      type: 'confirmation',
+      action: 'enrich_prospects',
+      status: 'completed',
+      message: `Enriched ${enrichedCount} of ${prospects.length} prospects.${failedCount > 0 ? ` ${failedCount} failed.` : ''}`,
+      progress: 100,
+    },
+    {
+      type: 'insight',
+      title: 'Enrichment complete',
+      description: `${enrichedCount} prospect${enrichedCount !== 1 ? 's' : ''} updated with enrichment data from OpenClaw.`,
+      severity: enrichedCount > 0 ? 'success' : 'warning',
+    },
+  ];
+
+  // Surface connectivity / gateway hints when there are failures
+  if (failedCount > 0 && lastErrorHint) {
+    blocks.push({
+      type: 'insight',
+      title: `${failedCount} enrichment${failedCount !== 1 ? 's' : ''} failed`,
+      description: lastErrorHint,
+      severity: failedCount === prospects.length ? 'error' : 'warning',
+    });
   }
 
   return {
     skillId: 'research.enrich_prospects',
     status: failedCount === prospects.length ? 'error' : 'success',
-    blocks: [
-      {
-        type: 'progress',
-        label: 'Enriching prospects via OpenClaw',
-        current: enrichedCount,
-        total: prospects.length,
-        status: 'completed',
-      },
-      {
-        type: 'confirmation',
-        action: 'enrich_prospects',
-        status: 'completed',
-        message: `Enriched ${enrichedCount} of ${prospects.length} prospects.${failedCount > 0 ? ` ${failedCount} failed.` : ''}`,
-        progress: 100,
-      },
-      {
-        type: 'insight',
-        title: 'Enrichment complete',
-        description: `${enrichedCount} prospect${enrichedCount !== 1 ? 's' : ''} updated with enrichment data from OpenClaw.`,
-        severity: enrichedCount > 0 ? 'success' : 'warning',
-      },
-    ],
+    blocks,
     followUps: FOLLOW_UPS,
     executionMs: 0,
     dataFreshness: 'live',

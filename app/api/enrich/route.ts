@@ -7,7 +7,10 @@ const MAX_PROSPECT_IDS = 50;
 export async function POST(request: Request) {
   if (!isOpenClawAvailable()) {
     return NextResponse.json(
-      { error: 'Enrichment service not configured' },
+      {
+        error: 'Enrichment service not configured',
+        hint: 'Set OPENCLAW_GATEWAY_URL and OPENCLAW_GATEWAY_TOKEN in environment variables.',
+      },
       { status: 503 }
     );
   }
@@ -85,7 +88,8 @@ export async function POST(request: Request) {
           enriched++;
         }
       } catch (err) {
-        console.error(`Enrich failed for ${prospect.id}:`, err);
+        const hint = (err as Error & { hint?: string })?.hint;
+        console.error(`Enrich failed for ${prospect.id}:`, err, hint ? `| Hint: ${hint}` : '');
         failed++;
       }
     })
