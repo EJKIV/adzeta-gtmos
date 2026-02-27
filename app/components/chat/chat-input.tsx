@@ -26,7 +26,7 @@ export function ChatInput({ onCommand, isProcessing, borderless }: ChatInputProp
     }
     const match = skillRegistry.findByPattern(input);
     if (match) {
-      setMatchPreview(`${match.skill.id} (${Math.round(match.confidence * 100)}%)`);
+      setMatchPreview(`${match.skill.name} \u00b7 ${Math.round(match.confidence * 100)}% match`);
     } else {
       setMatchPreview(null);
     }
@@ -157,7 +157,7 @@ export function ChatInput({ onCommand, isProcessing, borderless }: ChatInputProp
             style={{ color: 'var(--color-text-tertiary)' }}
           >
             <span className="text-[var(--color-brand-500)]">&rarr;</span>
-            <span className="font-mono">{matchPreview}</span>
+            <span className="text-[var(--color-text-secondary)]">{matchPreview}</span>
           </div>
         )}
       </div>

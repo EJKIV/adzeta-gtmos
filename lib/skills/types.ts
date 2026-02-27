@@ -107,6 +107,11 @@ export interface TableBlock {
   columns: TableColumn[];
   rows: Record<string, unknown>[];
   pageSize?: number;
+  rowAction?: {
+    type: 'command' | 'detail';
+    template: string;
+    idKey: string;
+  };
 }
 
 export interface TableColumn {
@@ -129,6 +134,10 @@ export interface ConfirmationBlock {
   status: 'pending' | 'executing' | 'completed' | 'failed';
   message: string;
   progress?: number;
+  approvalActions?: {
+    approve: { label: string; command: string };
+    reject: { label: string; command: string };
+  };
 }
 
 export interface ProgressBlock {

@@ -255,7 +255,7 @@ function findConditionals(template: string): ConditionalBlock[] {
   const openRegex = /\{\{\s*#(if|unless)\s+([^}]+)\s*\}\}/g;
   const closeRegex = /\{\{\s*\/(if|unless)\s*\}\}/g;
 
-  type Match = { index: number; type: 'open' | 'close'; tagType: 'if' | 'unless'; path?: string };
+  type Match = { index: number; type: 'open' | 'close'; tagType: 'if' | 'unless'; path?: string; length: number };
   const matches: Match[] = [];
 
   let match;
@@ -265,6 +265,7 @@ function findConditionals(template: string): ConditionalBlock[] {
       type: 'open',
       tagType: match[1] as 'if' | 'unless',
       path: match[2].trim(),
+      length: match[0].length,
     });
   }
 

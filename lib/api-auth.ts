@@ -41,8 +41,8 @@ export async function authenticate(req: NextRequest): Promise<{ ok: boolean; use
     // Cookie parsing failed — fall through
   }
 
-  // 3. Development bypass
-  if (process.env.NODE_ENV === 'development') return { ok: true };
+  // 3. Development bypass — use a stable UUID so DB inserts (sessions etc.) work
+  if (process.env.NODE_ENV === 'development') return { ok: true, userId: '00000000-0000-0000-0000-000000000000' };
 
   return { ok: false };
 }

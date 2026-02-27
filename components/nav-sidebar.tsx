@@ -6,15 +6,20 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
-  Search,
-  Users,
-  Megaphone,
-  GitBranch,
+  ClipboardList,
+  Settings,
   Menu,
   X,
   ChevronLeft,
   ChevronRight,
+  Search,
+  Users,
+  Megaphone,
+  GitBranch,
+  ChevronDown,
 } from 'lucide-react';
+import { SidebarSessionList } from './sidebar-session-list';
+import { usePendingCount } from '@/app/hooks/use-pending-count';
 
 interface NavItem {
   href: string;
@@ -23,33 +28,11 @@ interface NavItem {
   badge?: number;
 }
 
-const navItems: NavItem[] = [
-  {
-    href: '/',
-    label: 'Dashboard',
-    icon: <LayoutDashboard className="w-5 h-5" />,
-  },
-  {
-    href: '/outreach',
-    label: 'Research',
-    icon: <Search className="w-5 h-5" />,
-  },
-  {
-    href: '/outreach/prospects',
-    label: 'Prospects',
-    icon: <Users className="w-5 h-5" />,
-    badge: 24,
-  },
-  {
-    href: '/outreach/campaigns',
-    label: 'Campaigns',
-    icon: <Megaphone className="w-5 h-5" />,
-  },
-  {
-    href: '/outreach/sequences',
-    label: 'Sequences',
-    icon: <GitBranch className="w-5 h-5" />,
-  },
+const TOOL_ITEMS = [
+  { href: '/outreach', label: 'Research', icon: <Search className="w-4 h-4" /> },
+  { href: '/outreach/prospects', label: 'Prospects', icon: <Users className="w-4 h-4" /> },
+  { href: '/outreach/campaigns', label: 'Campaigns', icon: <Megaphone className="w-4 h-4" /> },
+  { href: '/outreach/sequences', label: 'Sequences', icon: <GitBranch className="w-4 h-4" /> },
 ];
 
 interface NavSidebarProps {
@@ -61,6 +44,27 @@ export default function NavSidebar({ children }: NavSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const pendingCount = usePendingCount();
+
+  const navItems: NavItem[] = [
+    {
+      href: '/',
+      label: 'Command Center',
+      icon: <LayoutDashboard className="w-5 h-5" />,
+    },
+    {
+      href: '/ops',
+      label: 'Operations',
+      icon: <ClipboardList className="w-5 h-5" />,
+      badge: pendingCount > 0 ? pendingCount : undefined,
+    },
+    {
+      href: '/settings',
+      label: 'Settings',
+      icon: <Settings className="w-5 h-5" />,
+    },
+  ];
 
   // Handle responsive behavior
   useEffect(() => {
@@ -120,12 +124,12 @@ export default function NavSidebar({ children }: NavSidebarProps) {
           width: isMobile ? 280 : undefined,
         }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className={`fixed top-0 left-0 h-screen bg-[#0a0a0a] border-r border-[#3a3a3e] z-50 ${
+        className={`fixed top-0 left-0 h-screen bg-[#0a0a0a] border-r border-[#3a3a3e] z-50 flex flex-col ${
           isMobile ? 'w-[280px]' : sidebarWidth
         }`}
       >
         {/* Header */}
-        <div className="h-14 border-b border-[#3a3a3e] flex items-center justify-between px-4">
+        <div className="h-14 border-b border-[#3a3a3e] flex items-center justify-between px-4 flex-shrink-0">
           <Link
             href="/"
             className={`flex items-center gap-3 ${isCollapsed && !isMobile ? 'justify-center w-full' : ''}`}
@@ -161,7 +165,7 @@ export default function NavSidebar({ children }: NavSidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="p-3 space-y-1">
+        <nav className="p-3 space-y-1 flex-shrink-0">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
@@ -207,7 +211,7 @@ export default function NavSidebar({ children }: NavSidebarProps) {
                 )}
 
                 {/* Badge */}
-                {item.badge && (!isCollapsed || isMobile) && (
+                {item.badge != null && item.badge > 0 && (!isCollapsed || isMobile) && (
                   <motion.span
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -215,6 +219,11 @@ export default function NavSidebar({ children }: NavSidebarProps) {
                   >
                     {item.badge}
                   </motion.span>
+                )}
+
+                {/* Collapsed badge dot */}
+                {item.badge != null && item.badge > 0 && isCollapsed && !isMobile && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#de347f] rounded-full" />
                 )}
 
                 {/* Tooltip for collapsed state */}
@@ -231,12 +240,68 @@ export default function NavSidebar({ children }: NavSidebarProps) {
           })}
         </nav>
 
+        {/* Tools (outreach pages) */}
+        {(!isCollapsed || isMobile) && (
+          <div className="px-3 mb-2">
+            <button
+              onClick={() => setToolsOpen(!toolsOpen)}
+              className="flex items-center justify-between w-full px-3 py-2 text-xs font-medium uppercase tracking-wider text-[#5a5a5d] hover:text-[#a1a1a6] transition-colors rounded-lg"
+            >
+              Tools
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform ${toolsOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            <AnimatePresence initial={false}>
+              {toolsOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="space-y-0.5 pt-1">
+                    {TOOL_ITEMS.map((item) => {
+                      const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => isMobile && setIsMobileOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+                            isActive
+                              ? 'text-[#de347f] bg-[#de347f]/10'
+                              : 'text-[#a1a1a6] hover:text-[#f5f5f7] hover:bg-[#1a1a1c]'
+                          }`}
+                        >
+                          <span className={isActive ? 'text-[#de347f]' : 'text-[#5a5a5d]'}>
+                            {item.icon}
+                          </span>
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Session list */}
+        <SidebarSessionList
+          isCollapsed={isCollapsed}
+          isMobile={isMobile}
+          onMobileClose={() => setIsMobileOpen(false)}
+        />
+
         {/* Footer */}
         {(!isCollapsed || isMobile) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute bottom-0 left-0 right-0 p-4 border-t border-[#3a3a3e]"
+            className="flex-shrink-0 mt-auto p-4 border-t border-[#3a3a3e]"
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-[#1a1a1c] flex items-center justify-center shrink-0">

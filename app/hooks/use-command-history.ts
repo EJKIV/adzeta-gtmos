@@ -1,21 +1,50 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 const MAX_HISTORY = 50;
+const STORAGE_KEY = 'gtm-command-history';
+
+function loadFromStorage(): string[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.slice(-MAX_HISTORY) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveToStorage(history: string[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-MAX_HISTORY)));
+  } catch {
+    // Storage full or unavailable — non-critical
+  }
+}
 
 /**
  * Tracks command history with up/down arrow navigation.
- * Returns a handler for keydown events and the current draft.
+ * Persists to localStorage so history survives page refreshes.
  */
 export function useCommandHistory() {
   const historyRef = useRef<string[]>([]);
   const [index, setIndex] = useState(-1);
   const draftRef = useRef('');
+  const initializedRef = useRef(false);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    if (!initializedRef.current) {
+      historyRef.current = loadFromStorage();
+      initializedRef.current = true;
+    }
+  }, []);
 
   const push = useCallback((text: string) => {
     const h = historyRef.current;
-    // Deduplicate: remove if same as last entry
+    // Deduplicate: skip if same as last entry
     if (h.length > 0 && h[h.length - 1] === text) {
       setIndex(-1);
       return;
@@ -23,6 +52,7 @@ export function useCommandHistory() {
     h.push(text);
     if (h.length > MAX_HISTORY) h.shift();
     setIndex(-1);
+    saveToStorage(h);
   }, []);
 
   /**

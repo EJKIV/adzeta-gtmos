@@ -12,7 +12,10 @@ import { authenticate } from '@/lib/api-auth';
 // ---------------------------------------------------------------------------
 
 function sseFrame(event: string, data: unknown): string {
-  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  const json = JSON.stringify(data);
+  // SSE spec: each line of data must be prefixed with "data: "
+  const dataLines = json.split('\n').map((line) => `data: ${line}`).join('\n');
+  return `event: ${event}\n${dataLines}\n\n`;
 }
 
 function statusFrame(phase: StatusPhase, message: string, extra?: Partial<StatusEvent>): string {

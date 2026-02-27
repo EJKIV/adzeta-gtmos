@@ -170,7 +170,7 @@ function validateSequenceStep(step: unknown, prefix: string): string[] {
   if (!isNumber(step.step_number) || step.step_number < 0 || step.step_number > 50) {
     errors.push(`${prefix}.step_number: Must be a number between 0 and 50`);
   }
-  if (step.template_id && !isValidUUID(step.template_id)) {
+  if (step.template_id && !isValidUUID(step.template_id as string)) {
     errors.push(`${prefix}.template_id: Must be a valid UUID`);
   }
   if (step.subject_override && (!isString(step.subject_override) || step.subject_override.length > 500)) {

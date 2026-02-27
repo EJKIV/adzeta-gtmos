@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase-server';
+import { authenticate } from '@/lib/api-auth';
 
 const DEMO_DATA = {
   pipeline_value: {
@@ -58,7 +59,12 @@ function withTimestamps<T extends Record<string, { last_updated: string }>>(data
   return result;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await authenticate(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const supabase = getServerSupabase();
 
   if (!supabase) {

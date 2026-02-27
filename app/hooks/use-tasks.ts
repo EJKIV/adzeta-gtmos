@@ -51,7 +51,7 @@ interface ApiOperatorResponse {
 }
 
 export function useTasks(refreshInterval = 30000) {
-  return useDataFetch<ApiOperatorResponse>('/operator-status', {
+  return useDataFetch<ApiOperatorResponse>('/tasks', {
     refreshInterval,
     retryCount: 2,
     staleWhileRevalidate: true,

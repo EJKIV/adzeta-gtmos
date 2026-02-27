@@ -31,6 +31,10 @@ export function EmployeeManagement() {
   }, []);
 
   const fetchProfiles = async () => {
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const { data: userProfiles } = await supabase
@@ -47,6 +51,7 @@ export function EmployeeManagement() {
   };
 
   const toggleEmployeeStatus = async (userId: string, currentStatus: boolean) => {
+    if (!supabase) return;
     if (!isAdmin) {
       setError('Only administrators can modify employee status');
       return;

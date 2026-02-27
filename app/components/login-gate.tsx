@@ -5,7 +5,7 @@ import { useAuth } from './auth-provider';
 import { Lock, Mail, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 export function LoginGate({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isEmployee, error: authError, signInWithEmail, signOut, clearError } = useAuth();
+  const { user, isLoading, isEmployee, isDemoMode, error: authError, signInWithEmail, signOut, clearError } = useAuth();
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -50,6 +50,16 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
         <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
       </div>
     );
+  }
+
+  // Demo mode — no Supabase configured, skip auth
+  if (isDemoMode) {
+    return <>{children}</>;
+  }
+
+  // Development bypass — allow local dev without magic link auth
+  if (process.env.NODE_ENV === 'development' && !user) {
+    return <>{children}</>;
   }
 
   // Not authenticated

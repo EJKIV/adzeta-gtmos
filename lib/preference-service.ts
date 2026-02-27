@@ -231,7 +231,7 @@ export async function getUserFeedback(
     
     if (error) throw error;
     
-    return (data || []).map(row => {
+    return (data || []).map((row: unknown) => {
       const r = row as unknown as FeedbackSignalRow;
       return {
         signal_type: r.signal_type as SignalType,

@@ -49,8 +49,8 @@ export function SidebarKpis() {
       <div className="p-4 space-y-3">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="flex items-center justify-between animate-pulse">
-            <div className="h-3 w-20 bg-slate-200 rounded" />
-            <div className="h-4 w-14 bg-slate-200 rounded" />
+            <div className="h-3 w-20 rounded" style={{ backgroundColor: 'var(--color-bg-tertiary)' }} />
+            <div className="h-4 w-14 rounded" style={{ backgroundColor: 'var(--color-bg-tertiary)' }} />
           </div>
         ))}
       </div>

@@ -187,7 +187,7 @@ class InMemoryQueue {
   private isPaused = false;
   private isProcessing = false;
   private config: QueueConfig;
-  private name: string;
+  readonly name: string;
   private deadLetterQueue?: InMemoryQueue;
 
   constructor(name: string, config: QueueConfig) {

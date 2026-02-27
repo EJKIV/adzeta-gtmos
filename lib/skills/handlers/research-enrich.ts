@@ -1,14 +1,14 @@
 /**
  * Skill: research.enrich_prospects
  *
- * Enriches prospects via OpenClaw Gateway.
- * Reads prospectIds from follow-up context or queries recent un-enriched prospects.
+ * Reports enrichment status from the database.
+ * Actual enrichment is handled by OpenClaw agent — the frontend
+ * just displays the current state and lets the AI do the work.
  */
 
 import { skillRegistry } from '../registry';
 import type { SkillInput, SkillOutput } from '../types';
 import { getServerSupabase } from '@/lib/supabase-server';
-import { invokeOpenClawTool, isOpenClawAvailable } from '@/src/lib/research/openclaw-client';
 
 const FOLLOW_UPS = [
   { label: 'Create campaign', command: 'create campaign for these prospects' },
@@ -17,36 +17,17 @@ const FOLLOW_UPS = [
 ];
 
 async function handler(input: SkillInput): Promise<SkillOutput> {
-  // Check OpenClaw availability
-  if (!isOpenClawAvailable()) {
+  const supabase = getServerSupabase();
+  if (!supabase) {
     return {
       skillId: 'research.enrich_prospects',
       status: 'partial',
       blocks: [
         {
           type: 'insight',
-          title: 'Zetty not configured',
-          description:
-            'Set OPENCLAW_GATEWAY_TOKEN (and optionally OPENCLAW_GATEWAY_URL) in .env.local to enable prospect enrichment.',
-          severity: 'warning',
-        },
-      ],
-      followUps: [{ label: 'Show help', command: 'help' }],
-      executionMs: 0,
-      dataFreshness: 'mock',
-    };
-  }
-
-  const supabase = getServerSupabase();
-  if (!supabase) {
-    return {
-      skillId: 'research.enrich_prospects',
-      status: 'error',
-      blocks: [
-        {
-          type: 'error',
-          message: 'Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local.',
-          suggestion: 'Enrichment requires a database to read/write prospect data.',
+          title: 'No database configured',
+          description: 'Enrichment status requires a database connection. Ask Zetty to enrich prospects directly.',
+          severity: 'info',
         },
       ],
       followUps: [{ label: 'Show help', command: 'help' }],
@@ -70,6 +51,30 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
   }
 
   if (prospectIds.length === 0) {
+    // Check if we have any enriched prospects to report on
+    const { count } = await supabase
+      .from('prospects')
+      .select('id', { count: 'exact', head: true })
+      .eq('enrichment_status', 'enriched');
+
+    if (count && count > 0) {
+      return {
+        skillId: 'research.enrich_prospects',
+        status: 'success',
+        blocks: [
+          {
+            type: 'insight',
+            title: 'All prospects enriched',
+            description: `${count} prospect${count !== 1 ? 's' : ''} have been enriched. No pending enrichments.`,
+            severity: 'success',
+          },
+        ],
+        followUps: FOLLOW_UPS,
+        executionMs: 0,
+        dataFreshness: 'live',
+      };
+    }
+
     return {
       skillId: 'research.enrich_prospects',
       status: 'partial',
@@ -77,7 +82,7 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
         {
           type: 'insight',
           title: 'No prospects to enrich',
-          description: 'Run a search first to find prospects, then try "Enrich all" again.',
+          description: 'Run a search first to find prospects, then ask Zetty to enrich them.',
           severity: 'info',
         },
       ],
@@ -90,10 +95,10 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
     };
   }
 
-  // Fetch prospect details
+  // Report on enrichment status of these prospects
   const { data: prospects } = await supabase
     .from('prospects')
-    .select('id, person_name, person_email, company_name')
+    .select('id, person_name, company_name, enrichment_status')
     .in('id', prospectIds);
 
   if (!prospects || prospects.length === 0) {
@@ -107,67 +112,31 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
     };
   }
 
-  // Enrich each prospect via OpenClaw
-  let enrichedCount = 0;
-  let failedCount = 0;
-  let lastErrorHint: string | undefined;
-
-  for (const prospect of prospects) {
-    const result = await invokeOpenClawTool('enrich_person', {
-      name: prospect.person_name,
-      email: prospect.person_email,
-      company: prospect.company_name,
-    });
-
-    if (result.success) {
-      await supabase
-        .from('prospects')
-        .update({ enrichment_data: result, enrichment_status: 'enriched' })
-        .eq('id', prospect.id);
-
-      enrichedCount++;
-    } else {
-      failedCount++;
-      lastErrorHint = result.hint || result.error;
-    }
-  }
+  const enriched = prospects.filter((p) => p.enrichment_status === 'enriched').length;
+  const pending = prospects.filter((p) => p.enrichment_status === 'pending').length;
+  const raw = prospects.filter((p) => p.enrichment_status === 'raw').length;
 
   const blocks: SkillOutput['blocks'] = [
     {
-      type: 'progress',
-      label: 'Enriching prospects via Zetty',
-      current: enrichedCount,
-      total: prospects.length,
-      status: 'completed',
-    },
-    {
-      type: 'confirmation',
-      action: 'enrich_prospects',
-      status: 'completed',
-      message: `Enriched ${enrichedCount} of ${prospects.length} prospects.${failedCount > 0 ? ` ${failedCount} failed.` : ''}`,
-      progress: 100,
-    },
-    {
       type: 'insight',
-      title: 'Enrichment complete',
-      description: `${enrichedCount} prospect${enrichedCount !== 1 ? 's' : ''} updated with enrichment data from Zetty.`,
-      severity: enrichedCount > 0 ? 'success' : 'warning',
+      title: `${prospects.length} prospects found`,
+      description: `Enriched: ${enriched} | Pending: ${pending} | Not enriched: ${raw}`,
+      severity: raw > 0 ? 'info' : 'success',
     },
   ];
 
-  // Surface connectivity / gateway hints when there are failures
-  if (failedCount > 0 && lastErrorHint) {
+  if (raw > 0) {
     blocks.push({
       type: 'insight',
-      title: `${failedCount} enrichment${failedCount !== 1 ? 's' : ''} failed`,
-      description: lastErrorHint,
-      severity: failedCount === prospects.length ? 'error' : 'warning',
+      title: `${raw} prospect${raw !== 1 ? 's' : ''} need enrichment`,
+      description: 'Ask Zetty to enrich these prospects — it will handle the data enrichment automatically.',
+      severity: 'info',
     });
   }
 
   return {
     skillId: 'research.enrich_prospects',
-    status: failedCount === prospects.length ? 'error' : 'success',
+    status: 'success',
     blocks,
     followUps: FOLLOW_UPS,
     executionMs: 0,
@@ -178,15 +147,15 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
 skillRegistry.register({
   id: 'research.enrich_prospects',
   name: 'Enrich Prospects',
-  description: 'Enriches prospect data via OpenClaw Gateway (emails, socials, firmographics).',
+  description: 'Shows enrichment status for prospects. Actual enrichment is handled by Zetty.',
   domain: 'research',
   inputSchema: { prospectIds: { type: 'array', optional: true } },
-  responseType: ['progress', 'confirmation', 'insight'],
+  responseType: ['insight'],
   triggerPatterns: [
     '\\b(enrich|validate|verify|augment)\\b.*\\b(prospect|contact|lead|all)\\b',
     '\\benrich\\s+(all|these|them)\\b',
   ],
-  estimatedMs: 10000,
+  estimatedMs: 1000,
   examples: [
     'enrich these prospects',
     'validate contacts',

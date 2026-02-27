@@ -59,14 +59,14 @@ export function ActivityFeed({ onAction, compact }: ActivityFeedProps) {
       <div className={wrapperClass} style={wrapperStyle} data-testid="activity-feed">
         <div className={`${px} py-3`}>
           <div className="flex items-center gap-2 mb-3">
-            <div className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-700" />
-            <div className="h-4 w-16 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--color-bg-tertiary)' }} />
+            <div className="h-4 w-16 rounded animate-pulse" style={{ backgroundColor: 'var(--color-bg-tertiary)' }} />
           </div>
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3 py-2.5">
-              <div className="h-3.5 w-3.5 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
-              <div className="flex-1 h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
-              <div className="h-3 w-12 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+              <div className="h-3.5 w-3.5 rounded animate-pulse" style={{ backgroundColor: 'var(--color-bg-tertiary)' }} />
+              <div className="flex-1 h-4 rounded animate-pulse" style={{ backgroundColor: 'var(--color-bg-tertiary)' }} />
+              <div className="h-3 w-12 rounded animate-pulse" style={{ backgroundColor: 'var(--color-bg-tertiary)' }} />
             </div>
           ))}
         </div>
@@ -137,6 +137,11 @@ export function ActivityFeed({ onAction, compact }: ActivityFeedProps) {
       )}
 
       <div className={`${px} ${compact ? '' : 'pb-3'} space-y-0`}>
+        {activities.length === 0 && (
+          <p className="py-4 text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
+            No recent activity
+          </p>
+        )}
         {visible.map((item) => (
           <div
             key={item.id}

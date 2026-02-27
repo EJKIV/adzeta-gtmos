@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { SystemHealthBadge } from './system-health-badge';
 
 const SIDEBAR_KEY = 'gtm-sidebar-collapsed';
 
 interface ChatLayoutProps {
-  sessionBar: ReactNode;
+  systemHealthy: boolean;
   thread: ReactNode;
   input: ReactNode;
   sidebar: ReactNode;
@@ -15,7 +16,7 @@ interface ChatLayoutProps {
   transitioning?: boolean;
 }
 
-export function ChatLayout({ sessionBar, thread, input, sidebar, emptyState, hasMessages, transitioning }: ChatLayoutProps) {
+export function ChatLayout({ systemHealthy, thread, input, sidebar, emptyState, hasMessages, transitioning }: ChatLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -64,17 +65,15 @@ export function ChatLayout({ sessionBar, thread, input, sidebar, emptyState, has
     >
       {/* Main chat area */}
       <div className="flex flex-col flex-1 min-w-0">
-        {/* Session bar */}
+        {/* Status bar */}
         <div
-          className="flex-shrink-0 border-b flex items-center gap-2 px-4 h-12"
+          className="flex-shrink-0 border-b flex items-center justify-end gap-2 px-4 h-10"
           style={{
             backgroundColor: 'var(--color-bg-elevated)',
             borderColor: 'var(--color-border)',
           }}
         >
-          <div className="flex-1 min-w-0 overflow-x-auto">
-            {sessionBar}
-          </div>
+          <SystemHealthBadge healthy={systemHealthy} />
           <button
             onClick={toggleSidebar}
             className="icon-btn-hover flex-shrink-0 p-1.5 rounded-lg"

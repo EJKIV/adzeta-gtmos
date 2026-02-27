@@ -31,7 +31,9 @@ export async function POST(
     });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // RLS or session not found — client will queue to IndexedDB
+    console.warn('[messages] DB insert failed:', error.message);
+    return NextResponse.json({ ok: true, persisted: false });
   }
 
   // Touch the session's updated_at

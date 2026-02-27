@@ -53,6 +53,12 @@ export function ChatMessage({
     setShowComment(false);
   };
 
+  const cancelComment = () => {
+    if (!messageId || !onFeedback) return;
+    onFeedback(messageId, 'negative');
+    setShowComment(false);
+  };
+
   if (type === 'command') {
     return (
       <div className="flex justify-end animate-fade-in-up" style={{ animationFillMode: 'forwards' }}>
@@ -145,24 +151,40 @@ export function ChatMessage({
         </div>
         {showComment && (
           <div className="mt-1 animate-fade-in">
-            <input
-              ref={commentRef}
-              type="text"
-              placeholder="What went wrong? (optional)"
-              className="w-64 px-2 py-1 text-[11px] rounded border bg-transparent outline-none"
-              style={{
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-secondary)',
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') submitComment();
-                if (e.key === 'Escape') {
-                  setShowComment(false);
-                  onFeedback!(messageId!, 'negative');
-                }
-              }}
-              onBlur={submitComment}
-            />
+            <div className="flex items-center gap-1.5">
+              <input
+                ref={commentRef}
+                type="text"
+                placeholder="What went wrong? (optional)"
+                className="w-56 px-2 py-1 text-[11px] rounded border bg-transparent outline-none"
+                style={{
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-secondary)',
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') submitComment();
+                  if (e.key === 'Escape') cancelComment();
+                }}
+              />
+              <button
+                onClick={submitComment}
+                className="px-2 py-1 text-[11px] font-medium rounded border transition-colors"
+                style={{
+                  color: 'var(--color-brand-500)',
+                  borderColor: 'rgba(222,52,127,0.3)',
+                  backgroundColor: 'rgba(222,52,127,0.04)',
+                }}
+              >
+                Send
+              </button>
+              <button
+                onClick={cancelComment}
+                className="px-2 py-1 text-[11px] rounded transition-colors"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                Skip
+              </button>
+            </div>
           </div>
         )}
       </div>

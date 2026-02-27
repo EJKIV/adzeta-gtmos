@@ -10,18 +10,18 @@ import { ConfirmationRenderer } from './confirmation-renderer';
 import { ProgressRenderer } from './progress-renderer';
 import { TextRenderer } from './text-renderer';
 
-function BlockRenderer({ block }: { block: ResponseBlock }) {
+function BlockRenderer({ block, onAction }: { block: ResponseBlock; onAction?: (command: string) => void }) {
   switch (block.type) {
     case 'metrics':
       return <MetricsRenderer block={block} />;
     case 'chart':
       return <ChartRenderer block={block} />;
     case 'table':
-      return <TableRenderer block={block} />;
+      return <TableRenderer block={block} onRowAction={onAction} />;
     case 'insight':
       return <InsightRenderer block={block} />;
     case 'confirmation':
-      return <ConfirmationRenderer block={block} />;
+      return <ConfirmationRenderer block={block} onAction={onAction} />;
     case 'progress':
       return <ProgressRenderer block={block} />;
     case 'text':
@@ -88,7 +88,7 @@ export function ResponseRenderer({ output, onFollowUp }: ResponseRendererProps) 
     <div className="space-y-3">
       {output.blocks.map((block, i) => (
         <React.Fragment key={`${block.type}-${i}`}>
-          <BlockRenderer block={block} />
+          <BlockRenderer block={block} onAction={onFollowUp} />
           {i + 1 === followUpInsertIndex && followUpButtons}
         </React.Fragment>
       ))}

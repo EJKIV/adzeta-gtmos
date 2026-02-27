@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase-server';
+import { authenticate } from '@/lib/api-auth';
 
 type KpiKey = 'qualified_leads' | 'meetings_booked' | 'reply_rate' | 'active_sequences' | 'pipeline_value';
 
@@ -109,6 +110,11 @@ const DEMO_RECORDS: Record<KpiKey, DetailResponse> = {
 };
 
 export async function GET(request: NextRequest) {
+  const auth = await authenticate(request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const key = request.nextUrl.searchParams.get('key') as KpiKey | null;
 
   if (!key || !DEMO_RECORDS[key]) {
@@ -167,6 +173,86 @@ export async function GET(request: NextRequest) {
             date: m.sent_at ? new Date(m.sent_at).toLocaleDateString() : '',
             status: m.status || 'Scheduled',
           })),
+          dataSource: 'live',
+        });
+      }
+    }
+
+    if (key === 'reply_rate') {
+      const { data: perf } = await supabase
+        .from('channel_performance')
+        .select('channel, messages_sent, replies, reply_rate')
+        .gte('date', new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0])
+        .order('date', { ascending: false });
+
+      if (perf && perf.length > 0) {
+        // Aggregate by channel
+        const byChannel = new Map<string, { sent: number; replied: number }>();
+        for (const r of perf) {
+          const ch = r.channel ?? 'unknown';
+          const d = byChannel.get(ch) ?? { sent: 0, replied: 0 };
+          d.sent += r.messages_sent ?? 0;
+          d.replied += r.replies ?? 0;
+          byChannel.set(ch, d);
+        }
+
+        const rows = [...byChannel.entries()].map(([channel, data]) => {
+          const rate = data.sent > 0 ? ((data.replied / data.sent) * 100).toFixed(1) + '%' : '0%';
+          return {
+            sequence: channel.charAt(0).toUpperCase() + channel.slice(1),
+            sent: data.sent,
+            replied: data.replied,
+            rate,
+            trend: data.sent > 0 && (data.replied / data.sent) > 0.15 ? 'up' : 'flat',
+          };
+        }).sort((a, b) => b.sent - a.sent);
+
+        return NextResponse.json({
+          title: 'Reply Rate Breakdown',
+          columns: DEMO_RECORDS.reply_rate.columns,
+          rows,
+          dataSource: 'live',
+        });
+      }
+    }
+
+    if (key === 'pipeline_value') {
+      const { data: prospects } = await supabase
+        .from('prospects')
+        .select('company_name, person_name, status, quality_score, fit_score')
+        .in('status', ['qualified', 'engaged', 'opportunity'])
+        .order('quality_score', { ascending: true })
+        .limit(20);
+
+      if (prospects && prospects.length > 0) {
+        const stageMap: Record<string, string> = {
+          qualified: 'Discovery',
+          engaged: 'Proposal',
+          opportunity: 'Negotiation',
+        };
+        const probMap: Record<string, string> = {
+          qualified: '25%',
+          engaged: '50%',
+          opportunity: '75%',
+        };
+        const valueMap: Record<string, number> = {
+          a: 250000,
+          b: 120000,
+        };
+
+        return NextResponse.json({
+          title: 'Pipeline Breakdown',
+          columns: DEMO_RECORDS.pipeline_value.columns,
+          rows: prospects.map(p => {
+            const estValue = valueMap[p.quality_score ?? 'b'] ?? 80000;
+            return {
+              deal: p.person_name || 'Unknown',
+              company: p.company_name || 'Unknown',
+              value: `$${(estValue / 1000).toFixed(0)}k`,
+              stage: stageMap[p.status] || p.status,
+              probability: probMap[p.status] || '20%',
+            };
+          }),
           dataSource: 'live',
         });
       }

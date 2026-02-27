@@ -1,15 +1,14 @@
 /**
  * Skill: research.prospect_search
  *
- * Searches for prospects matching ICP criteria.
- * DB-first flow: queries stored prospects, then augments with live search.
- * Fires async OpenClaw enrichment for new results when available.
+ * Queries stored prospects from the database.
+ * Live search (Apollo, etc.) is handled by the OpenClaw agent — the frontend
+ * just displays whatever structured data comes back.
  */
 
 import { skillRegistry } from '../registry';
-import type { SkillInput, SkillOutput, ProgressBlock, TableBlock, InsightBlock } from '../types';
+import type { SkillInput, SkillOutput, TableBlock, InsightBlock } from '../types';
 import { getServerSupabase } from '@/lib/supabase-server';
-import { createApolloClientFromEnv } from '@/src/lib/apollo/client';
 
 const TABLE_COLUMNS = [
   { key: 'source', label: 'Source', format: 'badge' as const },
@@ -35,15 +34,9 @@ const FOLLOW_UPS = [
   { label: 'Export CSV', command: 'export results as csv' },
 ];
 
-function searchLabel(titles: string[], industries: string[]): string {
-  const who = titles.length ? titles.join(', ') : 'prospects';
-  const where = industries.length ? ` in ${industries.join(', ')}` : '';
-  return `Searching for ${who}${where}`;
-}
-
 /** Build ILIKE filter for an array of values on a column */
-function buildIlikeFilter(query: ReturnType<ReturnType<typeof getServerSupabase>['from']>, column: string, values: string[]) {
-  // Chain .or() with ILIKE patterns
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildIlikeFilter(query: any, column: string, values: string[]) {
   const patterns = values.map((v) => `${column}.ilike.%${v}%`).join(',');
   return query.or(patterns);
 }
@@ -55,47 +48,28 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
   const industries = (icp?.industries as string[]) || [];
 
   const supabase = getServerSupabase();
-  const hasApolloKey = !!process.env.APOLLO_API_KEY;
 
-  const blocks: (ProgressBlock | InsightBlock | TableBlock)[] = [];
-
-  // ── Step 1: Query Supabase for stored prospects ───────────────────
-  type StoredRow = {
-    id: string;
-    source: string;
-    name: string;
-    title: string;
-    company: string;
-    industry: string;
-    score: number;
-    grade: string;
-    source_provider_id?: string;
-  };
-
-  let storedRows: StoredRow[] = [];
-  const storedProviderIds = new Set<string>();
-
+  // Query stored prospects from database
   if (supabase) {
-    let query = supabase
-      .from('prospects')
-      .select('id, person_name, person_title, company_name, company_industry, quality_score, source_provider_id')
-      .order('quality_score', { ascending: false })
-      .limit(50);
+    try {
+      let query = supabase
+        .from('prospects')
+        .select('id, person_name, person_title, company_name, company_industry, quality_score, source_provider_id')
+        .order('quality_score', { ascending: false })
+        .limit(50);
 
-    if (titles.length) {
-      query = buildIlikeFilter(query, 'person_title', titles) as typeof query;
-    }
-    if (industries.length) {
-      query = buildIlikeFilter(query, 'company_industry', industries) as typeof query;
-    }
+      if (titles.length) {
+        query = buildIlikeFilter(query, 'person_title', titles) as typeof query;
+      }
+      if (industries.length) {
+        query = buildIlikeFilter(query, 'company_industry', industries) as typeof query;
+      }
 
-    const { data } = await query;
+      const { data } = await query;
 
-    if (data && data.length > 0) {
-      const gradeMap: Record<string, string> = { a: 'A+', b: 'B+', c: 'C', d: 'D', f: 'F' };
-      storedRows = data.map((row) => {
-        if (row.source_provider_id) storedProviderIds.add(row.source_provider_id);
-        return {
+      if (data && data.length > 0) {
+        const gradeMap: Record<string, string> = { a: 'A+', b: 'B+', c: 'C', d: 'D', f: 'F' };
+        const rows = data.map((row) => ({
           id: row.id,
           source: 'Stored',
           name: row.person_name || '',
@@ -104,137 +78,60 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
           industry: row.company_industry || '',
           score: 80,
           grade: gradeMap[row.quality_score as string] || 'B+',
-          source_provider_id: row.source_provider_id ?? undefined,
+        }));
+
+        const table: TableBlock = {
+          type: 'table',
+          title: `${rows.length} prospects`,
+          columns: TABLE_COLUMNS,
+          rows,
+          pageSize: 10,
         };
-      });
-    }
-  }
 
-  // ── Step 2: Live search for new prospects ──────────────────────────
-  const newRows: StoredRow[] = [];
-  let liveSearchFailed = false;
-
-  if (!hasApolloKey) {
-    blocks.push({
-      type: 'insight',
-      title: 'Live search not configured',
-      description: 'Set APOLLO_API_KEY in .env.local to search for new prospects. Showing stored results below.',
-      severity: 'warning',
-    });
-  } else {
-    try {
-      const apollo = createApolloClientFromEnv();
-      const filters: Record<string, unknown> = { per_page: 25 };
-      if (titles.length) filters.person_titles = titles;
-      if (industries.length) filters.organization_industries = industries;
-
-      const result = await apollo.searchProspects(filters as Parameters<typeof apollo.searchProspects>[0]);
-
-      const gradeFromScore = (s: number) => {
-        if (s >= 95) return 'A+';
-        if (s >= 85) return 'A';
-        if (s >= 75) return 'B+';
-        if (s >= 65) return 'B';
-        if (s >= 50) return 'C';
-        return 'D';
-      };
-
-      for (const person of result.people) {
-        if (storedProviderIds.has(person.id)) continue;
-        const org = person.organization;
-        const score = 50
-          + (person.email || person.work_email ? 10 : 0)
-          + (person.linkedin_url ? 5 : 0)
-          + (org?.funding_stage ? 10 : 0)
-          + ((org?.employee_count ?? 0) > 50 ? 10 : 0);
-        const fullName = person.name
-          || [person.first_name, person.last_name].filter(Boolean).join(' ')
-          || 'Unknown';
-        newRows.push({
-          id: person.id,
-          source: 'Apollo',
-          name: fullName,
-          title: person.title || '',
-          company: org?.name || '',
-          industry: org?.industry || '',
-          score: Math.min(score, 100),
-          grade: gradeFromScore(Math.min(score, 100)),
-          source_provider_id: person.id,
-        });
+        return {
+          skillId: 'research.prospect_search',
+          status: 'success',
+          blocks: [
+            {
+              type: 'insight',
+              title: `Found ${rows.length} stored prospects`,
+              description: 'Showing results from your database.',
+              severity: 'success',
+            } satisfies InsightBlock,
+            table,
+          ],
+          followUps: FOLLOW_UPS,
+          executionMs: 0,
+          dataFreshness: 'live',
+        };
       }
     } catch (err) {
-      console.error('[research.prospect_search] Apollo live search failed:', err);
-      liveSearchFailed = true;
+      console.warn('[research.prospect_search] DB query failed:', err);
     }
   }
 
-  // ── Step 3: Merge results ─────────────────────────────────────────
-  const allRows = [...storedRows, ...newRows];
-
-  // If zero total results, fall back to demo data
-  if (allRows.length === 0) {
-    const table: TableBlock = {
-      type: 'table',
-      title: `Sample results (${MOCK_RESULTS.length} prospects)`,
-      columns: TABLE_COLUMNS,
-      rows: MOCK_RESULTS,
-      pageSize: 10,
-    };
-
-    return {
-      skillId: 'research.prospect_search',
-      status: 'partial',
-      blocks: [...blocks, table],
-      followUps: FOLLOW_UPS,
-      executionMs: 0,
-      dataFreshness: 'mock',
-    };
-  }
-
-  // Build summary insight
-  const parts: string[] = [];
-  if (storedRows.length > 0) parts.push(`${storedRows.length} stored`);
-  if (newRows.length > 0) parts.push(`${newRows.length} new`);
-  const summaryText = parts.join(', ');
-
-  const progress: ProgressBlock = {
-    type: 'progress',
-    label: searchLabel(titles, industries),
-    current: allRows.length,
-    total: allRows.length,
-    status: 'completed',
-  };
-
-  const success: InsightBlock = {
-    type: 'insight',
-    title: `Found ${allRows.length} prospects (${summaryText})`,
-    description: liveSearchFailed
-      ? 'Live search encountered an error — showing stored results only.'
-      : newRows.length > 0
-        ? `${newRows.length} new prospects saved to your database.`
-        : storedRows.length > 0
-          ? 'All results from your database — no new results from live search.'
-          : 'Results shown below.',
-    severity: 'success',
-  };
-
-  const table: TableBlock = {
-    type: 'table',
-    title: `${allRows.length} prospects`,
-    columns: TABLE_COLUMNS,
-    rows: allRows,
-    pageSize: 10,
-  };
-
-  blocks.push(progress, success, table);
-
+  // No stored data — return demo results
   return {
     skillId: 'research.prospect_search',
-    status: 'success',
-    blocks,
+    status: 'partial',
+    blocks: [
+      {
+        type: 'insight',
+        title: 'No stored prospects found',
+        description: 'Showing sample data. Ask Zetty to search for new prospects.',
+        severity: 'info',
+      } satisfies InsightBlock,
+      {
+        type: 'table',
+        title: `Sample results (${MOCK_RESULTS.length} prospects)`,
+        columns: TABLE_COLUMNS,
+        rows: MOCK_RESULTS,
+        pageSize: 10,
+      } satisfies TableBlock,
+    ],
     followUps: FOLLOW_UPS,
     executionMs: 0,
-    dataFreshness: newRows.length > 0 ? 'live' : storedRows.length > 0 ? 'cached' : 'mock',
+    dataFreshness: 'mock',
   };
 }
 
@@ -244,12 +141,12 @@ skillRegistry.register({
   description: 'Finds prospects matching ICP criteria — titles, industries, signals.',
   domain: 'research',
   inputSchema: { icp: { type: 'object', optional: true }, query: { type: 'string' } },
-  responseType: ['progress', 'table'],
+  responseType: ['table'],
   triggerPatterns: [
     '\\b(find|search|get|look for|prospect|identify|discover|hunt)\\b',
     '\\b(CMO|CTO|VP|director|head of)\\b',
   ],
-  estimatedMs: 3000,
+  estimatedMs: 1000,
   examples: [
     'find CMOs at fintech companies',
     'search for VP Engineering at SaaS startups',

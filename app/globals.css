@@ -17,7 +17,7 @@
   --color-text-primary: #1d1d1f;
   --color-text-secondary: #5a5a5d;
   --color-text-tertiary: #86868b;
-  --color-text-muted: #86868b;
+  --color-text-muted: #aeaeb2;
   --color-text-inverse: #ffffff;
 
   /* Borders - Adzeta neutral scale */
@@ -116,9 +116,9 @@
   color-scheme: dark;
 }
 
-/* Force light-mode variables on main content when OS is dark.
-   Applied to the main content wrapper so dashboard stays light
-   while the navigation sidebar keeps its own dark palette. */
+/* Light-content: applied to main content area for light-on-dark layout
+   (dark nav sidebar + light main content). Overrides .dark variables
+   within the content region only. */
 .light-content {
   --color-bg-primary: #ffffff;
   --color-bg-secondary: #f8fafc;
@@ -127,7 +127,7 @@
   --color-text-primary: #1d1d1f;
   --color-text-secondary: #5a5a5d;
   --color-text-tertiary: #86868b;
-  --color-text-muted: #86868b;
+  --color-text-muted: #aeaeb2;
   --color-text-inverse: #ffffff;
   --color-border: #d1d5db;
   --color-border-subtle: #e5e5ea;
@@ -206,10 +206,8 @@
 
   /* Focus visible - Premium focus rings */
   *:focus-visible {
-    outline: none;
-    ring: var(--focus-ring-width) solid var(--focus-ring-color);
-    ring-offset: var(--focus-ring-offset);
-    ring-offset-color: var(--color-bg-primary);
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
   }
 }
 
@@ -611,13 +609,21 @@
 
   /* Glass card - premium glassmorphism */
   .glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  .dark .glass-card {
     background: rgba(26, 21, 40, 0.6);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: none;
   }
 
-  /* Light-mode glass card override */
   .light-content .glass-card {
     background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(24px) saturate(180%);
@@ -844,6 +850,16 @@
   .badge-info { 
     background: rgba(59, 130, 246, 0.1);
     color: var(--color-info);
+  }
+}
+
+/* ==========================================================================
+   TOUCH DEVICE SUPPORT
+   ========================================================================== */
+
+@media (pointer: coarse) {
+  .touch-device\:inline-flex {
+    display: inline-flex !important;
   }
 }
 

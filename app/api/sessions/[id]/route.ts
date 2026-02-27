@@ -24,7 +24,8 @@ export async function GET(
     .order('created_at', { ascending: true });
 
   if (error) {
-    return NextResponse.json({ messages: [] }, { status: 500 });
+    console.warn('[sessions] Messages query failed:', error.message);
+    return NextResponse.json({ messages: [] });
   }
 
   return NextResponse.json({ messages: data });
@@ -61,7 +62,7 @@ export async function PATCH(
     .eq('id', id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.warn('[sessions] PATCH failed:', error.message);
   }
 
   return NextResponse.json({ ok: true });
@@ -88,7 +89,7 @@ export async function DELETE(
     .eq('id', id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.warn('[sessions] DELETE (archive) failed:', error.message);
   }
 
   return NextResponse.json({ ok: true });

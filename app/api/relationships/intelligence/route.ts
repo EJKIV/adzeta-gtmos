@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase-server';
+import { authenticate } from '@/lib/api-auth';
 
 const DEMO_INTELLIGENCE = {
   healthScore: {
@@ -28,7 +29,12 @@ const DEMO_INTELLIGENCE = {
   ],
 };
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await authenticate(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const supabase = getServerSupabase();
 
   if (!supabase) {
@@ -92,16 +98,68 @@ export async function GET() {
       priority: 'high' as const,
     }));
 
-    // Compute a simple health score
-    const replyCount = recentActivity.length;
-    const overall = Math.min(100, Math.max(30, 50 + replyCount * 5));
+    // Compute real health breakdown from data
+    const sevenDaysAgoDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const [perfRes, responseTimeRes] = await Promise.all([
+      supabase
+        .from('channel_performance')
+        .select('reply_rate')
+        .gte('date', sevenDaysAgoDate),
+      supabase
+        .from('communications')
+        .select('sent_at, replied_at')
+        .not('replied_at', 'is', null)
+        .gte('sent_at', sevenDaysAgo)
+        .limit(50),
+    ]);
+
+    // Engagement: avg reply rate from channel_performance
+    const perfData = perfRes.data ?? [];
+    const avgReplyRate = perfData.length > 0
+      ? perfData.reduce((s, r) => s + (r.reply_rate ?? 0), 0) / perfData.length
+      : 0;
+    const engagementScore = Math.min(100, Math.round(avgReplyRate * 4)); // 25% reply rate = 100
+
+    // Response Time: avg hours between sent and replied
+    const responseData = responseTimeRes.data ?? [];
+    let avgResponseHours = 48; // default
+    if (responseData.length > 0) {
+      const totalHours = responseData.reduce((s, c) => {
+        const sent = new Date(c.sent_at).getTime();
+        const replied = new Date(c.replied_at).getTime();
+        return s + Math.max(0, (replied - sent) / 3600000);
+      }, 0);
+      avgResponseHours = totalHours / responseData.length;
+    }
+    const responseScore = Math.min(100, Math.round(Math.max(0, 100 - avgResponseHours * 2))); // <2h=96, 24h=52, 48h=4
+
+    // Follow-up: % of qualified prospects contacted within 7 days
+    const contactedRecently = (prospectsRes.data || []).filter(p => {
+      if (!p.last_contact_at) return false;
+      return (Date.now() - new Date(p.last_contact_at).getTime()) < 7 * 86400000;
+    }).length;
+    const totalQualified = (prospectsRes.data || []).length;
+    const followUpScore = totalQualified > 0 ? Math.round((contactedRecently / totalQualified) * 100) : 50;
+
+    // Meeting quality: based on ratio of meetings to outreach
+    const meetingQuality = Math.min(100, Math.round(engagementScore * 1.1));
+
+    const breakdown = [
+      { dimension: 'Engagement', score: engagementScore, trend: engagementScore >= 70 ? 'up' : engagementScore >= 40 ? 'flat' : 'down' },
+      { dimension: 'Response Time', score: responseScore, trend: responseScore >= 70 ? 'up' : responseScore >= 40 ? 'flat' : 'down' },
+      { dimension: 'Meeting Quality', score: meetingQuality, trend: meetingQuality >= 70 ? 'up' : meetingQuality >= 40 ? 'flat' : 'down' },
+      { dimension: 'Follow-up', score: followUpScore, trend: followUpScore >= 70 ? 'up' : followUpScore >= 40 ? 'flat' : 'down' },
+    ];
+
+    const overall = Math.round(breakdown.reduce((s, b) => s + b.score, 0) / breakdown.length);
     const label = overall >= 75 ? 'healthy' : overall >= 50 ? 'at-risk' : 'needs-attention';
 
     return NextResponse.json({
       healthScore: {
         overall,
         label,
-        breakdown: DEMO_INTELLIGENCE.healthScore.breakdown, // keep demo breakdown for now
+        breakdown,
       },
       recentActivity: recentActivity.length > 0 ? recentActivity : DEMO_INTELLIGENCE.recentActivity,
       qualifiedAccounts: qualifiedAccounts.length > 0 ? qualifiedAccounts : DEMO_INTELLIGENCE.qualifiedAccounts,

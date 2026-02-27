@@ -7,8 +7,8 @@ import { ChatThread } from '@/app/components/chat/chat-thread';
 import { ChatInput } from '@/app/components/chat/chat-input';
 import { QuickSuggestions } from '@/app/components/chat/quick-suggestions';
 import { EmptyState } from '@/app/components/chat/empty-state';
-import { SessionBar } from '@/app/components/chat/session-bar';
 import { RightSidebar } from '@/app/components/sidebar/right-sidebar';
+import { useSessionContext } from '@/app/components/session-provider';
 import { useChatEngine } from '@/app/hooks/use-chat-engine';
 
 export default function Home() {
@@ -22,6 +22,7 @@ export default function Home() {
 function DashboardContent() {
   const { user } = useAuth();
   const engine = useChatEngine(user?.id);
+  const { activeSessionId } = useSessionContext();
 
   const hasMessages = engine.thread.length > 0 || engine.transitioning;
 
@@ -29,16 +30,7 @@ function DashboardContent() {
     <ChatLayout
       hasMessages={hasMessages}
       transitioning={engine.transitioning}
-      sessionBar={
-        <SessionBar
-          sessions={engine.sessions}
-          activeSessionId={engine.activeSessionId}
-          onNewChat={engine.handleNewChat}
-          onSwitchSession={engine.handleSwitchSession}
-          onArchiveSession={engine.handleArchiveSession}
-          systemHealthy={!engine.sessionError}
-        />
-      }
+      systemHealthy={!engine.sessionError}
       thread={
         <ChatThread
           entries={engine.thread}
@@ -48,13 +40,13 @@ function DashboardContent() {
           statusMessage={engine.statusMessage}
           feedbackMap={engine.feedbackMap}
           onFeedback={engine.handleFeedback}
-          sessionId={engine.activeSessionId}
+          sessionId={activeSessionId}
         />
       }
       input={
         <>
           {engine.thread.length > 0 && !engine.isProcessing && (
-            <QuickSuggestions onCommand={engine.handleCommand} />
+            <QuickSuggestions followUps={engine.lastFollowUps} onCommand={engine.handleCommand} />
           )}
           <ChatInput onCommand={engine.handleCommand} isProcessing={engine.isProcessing} />
         </>

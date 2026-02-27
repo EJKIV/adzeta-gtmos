@@ -10,8 +10,9 @@ const STATUS_CONFIG: Record<ConfirmationBlock['status'], { icon: React.ReactNode
   failed: { icon: <XCircle className="h-4 w-4" />, label: 'Failed', color: 'text-[#dc2626]' },
 };
 
-export function ConfirmationRenderer({ block }: { block: ConfirmationBlock }) {
+export function ConfirmationRenderer({ block, onAction }: { block: ConfirmationBlock; onAction?: (command: string) => void }) {
   const cfg = STATUS_CONFIG[block.status];
+  const showApproval = block.status === 'pending' && block.approvalActions && onAction;
 
   return (
     <div
@@ -31,7 +32,34 @@ export function ConfirmationRenderer({ block }: { block: ConfirmationBlock }) {
           {block.message}
         </p>
       </div>
-      <span className={`text-xs font-semibold ${cfg.color}`}>{cfg.label}</span>
+      {showApproval ? (
+        <div className="flex gap-2">
+          <button
+            onClick={() => onAction!(block.approvalActions!.approve.command)}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+            style={{
+              backgroundColor: 'rgba(22, 163, 74, 0.08)',
+              color: '#16a34a',
+              border: '1px solid rgba(22, 163, 74, 0.2)',
+            }}
+          >
+            {block.approvalActions!.approve.label}
+          </button>
+          <button
+            onClick={() => onAction!(block.approvalActions!.reject.command)}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+            style={{
+              backgroundColor: 'rgba(220, 38, 38, 0.08)',
+              color: '#dc2626',
+              border: '1px solid rgba(220, 38, 38, 0.2)',
+            }}
+          >
+            {block.approvalActions!.reject.label}
+          </button>
+        </div>
+      ) : (
+        <span className={`text-xs font-semibold ${cfg.color}`}>{cfg.label}</span>
+      )}
       {block.progress !== undefined && block.status === 'executing' && (
         <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-n100)' }}>
           <div

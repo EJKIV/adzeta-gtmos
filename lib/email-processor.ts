@@ -227,8 +227,8 @@ export class EmailProcessor {
       rateLimiter: config.rateLimiter ?? getEmailRateLimiter(),
       queueService: config.queueService ?? getEmailQueueService(),
       logLevel: config.logLevel ?? 'info',
-      onEvent: config.onEvent,
-      onRateLimit: config.onRateLimit,
+      onEvent: config.onEvent ?? (() => {}),
+      onRateLimit: config.onRateLimit ?? (() => {}),
       maxRetries: config.maxRetries ?? 3,
       baseDelayMs: config.baseDelayMs ?? 5000,
       backoffMultiplier: config.backoffMultiplier ?? 2,
@@ -547,11 +547,22 @@ export class EmailProcessor {
 let globalEmailProcessor: EmailProcessor | null = null;
 
 /**
- * Get or create the global email processor
+ * Get or create the global email processor.
+ * Automatically uses Resend when RESEND_API_KEY is set,
+ * otherwise falls back to simulated provider.
  */
-export function getEmailProcessor(config?: Partial<Omit<EmailProcessorConfig, 'provider'>> & { provider: EmailProvider }): EmailProcessor {
+export function getEmailProcessor(config?: Partial<Omit<EmailProcessorConfig, 'provider'>> & { provider?: EmailProvider }): EmailProcessor {
   if (!globalEmailProcessor) {
-    const provider = config?.provider ?? new SimulatedEmailProvider();
+    let provider: EmailProvider;
+    if (config?.provider) {
+      provider = config.provider;
+    } else if (process.env.RESEND_API_KEY) {
+      // Dynamic import to avoid loading Resend in non-email contexts
+      const { ResendEmailProvider } = require('./email-providers/resend-provider');
+      provider = new ResendEmailProvider();
+    } else {
+      provider = new SimulatedEmailProvider();
+    }
     globalEmailProcessor = new EmailProcessor({ ...config, provider });
   }
   return globalEmailProcessor;

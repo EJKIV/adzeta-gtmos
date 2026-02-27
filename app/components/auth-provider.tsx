@@ -2,12 +2,13 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase-client';
-import { User } from '@supabase/supabase-js';
+import type { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isEmployee: boolean;
+  isDemoMode: boolean;
   error: string | null;
   signInWithEmail: (email: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -26,14 +27,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Effect 1: Initial auth check and onAuthStateChange subscription
   useEffect(() => {
+    if (!supabase) {
+      // No Supabase configured — run in demo mode (skip auth, grant access)
+      console.log('[Auth] No Supabase configured — running in demo mode');
+      setIsEmployee(true);
+      setIsLoading(false);
+      return;
+    }
+
     console.log('[Auth] Setting up auth subscription...');
-    
+
     let subscription: { unsubscribe: () => void } | null = null;
 
     const setupSubscription = async () => {
       // Check existing session first
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (session?.user) {
         console.log('[Auth] Existing session found:', session.user.email);
         setUser(session.user);
@@ -45,9 +54,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Subscribe to auth changes
       const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
+        async (event: AuthChangeEvent, session: Session | null) => {
           console.log('[Auth] onAuthStateChange event:', event);
-          
+
           if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
             if (session?.user) {
               console.log('[Auth] User signed in:', session.user.email);
@@ -65,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       );
-      
+
       subscription = sub;
     };
 
@@ -81,7 +90,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Effect 2: Fetch profile when user changes
   useEffect(() => {
-    if (!user) {
+    if (!user || !supabase) {
+      if (!supabase) return; // demo mode — already handled
       console.log('[Auth] No user, skipping profile fetch');
       return;
     }
@@ -96,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select('is_employee, role')
           .eq('id', user.id)
           .single();
-        
+
         if (profileError) {
           console.error('[Auth] Profile fetch error:', profileError);
           setIsEmployee(false);
@@ -118,34 +128,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, user]);
 
   const signInWithEmail = async (email: string) => {
+    if (!supabase) {
+      return { error: new Error('Supabase not configured') };
+    }
+
     const currentDomain = typeof window !== 'undefined' ? window.location.origin : 'https://gtm.adzeta.io';
-    
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: `${currentDomain}/auth/callback`,
       },
     });
-    
+
     return { error };
   };
 
   const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.error('Sign out error:', err);
+    if (supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.error('Sign out error:', err);
+      }
     }
     setUser(null);
     setIsEmployee(false);
   };
 
   const clearError = () => setError(null);
-
-  console.log('[Auth] Render - isLoading:', isLoading, 'user:', user?.email || 'null', 'isEmployee:', isEmployee);
+  const isDemoMode = !supabase;
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isEmployee, error, signInWithEmail, signOut, clearError }}>
+    <AuthContext.Provider value={{ user, isLoading, isEmployee, isDemoMode, error, signInWithEmail, signOut, clearError }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import type { TableBlock } from '@/lib/skills/types';
 
 function formatCell(value: unknown, format?: string): React.ReactNode {
@@ -34,7 +35,7 @@ function formatCell(value: unknown, format?: string): React.ReactNode {
   return str;
 }
 
-export function TableRenderer({ block }: { block: TableBlock }) {
+export function TableRenderer({ block, onRowAction }: { block: TableBlock; onRowAction?: (command: string) => void }) {
   const pageSize = block.pageSize || 10;
   const [page, setPage] = useState(0);
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -57,6 +58,7 @@ export function TableRenderer({ block }: { block: TableBlock }) {
       setSortKey(key);
       setSortAsc(true);
     }
+    setPage(0);
   };
 
   return (
@@ -87,7 +89,9 @@ export function TableRenderer({ block }: { block: TableBlock }) {
                 >
                   {col.label}
                   {sortKey === col.key && (
-                    <span className="ml-1">{sortAsc ? '\u2191' : '\u2193'}</span>
+                    <span className="ml-1 inline-flex align-middle">
+                      {sortAsc ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </span>
                   )}
                 </th>
               ))}
@@ -97,8 +101,14 @@ export function TableRenderer({ block }: { block: TableBlock }) {
             {paged.map((row, ri) => (
               <tr
                 key={ri}
-                className="tr-hover border-b last:border-b-0"
+                className={`tr-hover border-b last:border-b-0${block.rowAction && onRowAction ? ' cursor-pointer' : ''}`}
                 style={{ borderColor: 'var(--color-border-subtle)' }}
+                onClick={() => {
+                  if (block.rowAction && onRowAction) {
+                    const id = String(row[block.rowAction.idKey] ?? '');
+                    onRowAction(block.rowAction.template.replace('{id}', id));
+                  }
+                }}
               >
                 {block.columns.map((col) => (
                   <td

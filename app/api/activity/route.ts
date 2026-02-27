@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase-server';
+import { authenticate } from '@/lib/api-auth';
 
 interface DemoActivity {
   id: string;
@@ -35,7 +36,12 @@ function computeTimeAgo(timestamp: string): string {
   return `${days}d ago`;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await authenticate(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const supabase = getServerSupabase();
 
   if (!supabase) {

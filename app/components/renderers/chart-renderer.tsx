@@ -133,7 +133,7 @@ export function ChartRenderer({ block }: { block: ChartBlock }) {
           {block.title}
         </p>
       )}
-      <div className="h-52">
+      <div style={{ height: Math.max(180, Math.min(320, block.data.length * 16 + 120)) }}>
         <ResponsiveContainer width="100%" height="100%">
           {chartContent}
         </ResponsiveContainer>

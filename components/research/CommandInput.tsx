@@ -9,7 +9,8 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Send, Loader2, Sparkles, Zap } from 'lucide-react';
-import { getCommandSuggestions } from '@/lib/research/command-parser';
+// Stub: original module was removed. This component is unused legacy code.
+function getCommandSuggestions(_input: string): string[] { return []; }
 
 interface CommandInputProps {
   onSubmit: (command: string) => Promise<void>;

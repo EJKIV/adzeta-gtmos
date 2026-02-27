@@ -41,14 +41,16 @@ export function SmartAlerts({ limit = 5 }: SmartAlertsProps) {
 
   const {
     anomalies,
-    anomalySummary,
     criticalAnomalies,
     warningAnomalies,
+    criticalCount,
+    warningCount,
     isLoading: anomaliesLoading,
     isError: anomaliesError,
     error: anomaliesErr,
     refetch: refetchAnomalies,
   } = useAnomalies(30000);
+  const anomalySummary = { newAnomalies: criticalCount + warningCount, criticalCount, warningCount };
 
   const {
     risks,
@@ -172,7 +174,7 @@ export function SmartAlerts({ limit = 5 }: SmartAlertsProps) {
         <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
           <div className="flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            <span>Updated {formatLastUpdated(lastUpdated)}</span>
+            <span>Updated {formatLastUpdated(new Date(lastUpdated))}</span>
           </div>
         </div>
       )}
