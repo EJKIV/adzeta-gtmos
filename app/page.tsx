@@ -5,7 +5,6 @@ import { useAuth } from '@/app/components/auth-provider';
 import { ChatLayout } from '@/app/components/chat/chat-layout';
 import { ChatThread } from '@/app/components/chat/chat-thread';
 import { ChatInput } from '@/app/components/chat/chat-input';
-import { QuickSuggestions } from '@/app/components/chat/quick-suggestions';
 import { EmptyState } from '@/app/components/chat/empty-state';
 import { RightSidebar } from '@/app/components/sidebar/right-sidebar';
 import { useSessionContext } from '@/app/components/session-provider';
@@ -44,12 +43,7 @@ function DashboardContent() {
         />
       }
       input={
-        <>
-          {engine.thread.length > 0 && !engine.isProcessing && (
-            <QuickSuggestions followUps={engine.lastFollowUps} onCommand={engine.handleCommand} />
-          )}
-          <ChatInput onCommand={engine.handleCommand} isProcessing={engine.isProcessing} />
-        </>
+        <ChatInput onCommand={engine.handleCommand} isProcessing={engine.isProcessing} />
       }
       emptyState={
         <EmptyState onCommand={engine.handleCommand}>

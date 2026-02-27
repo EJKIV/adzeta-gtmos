@@ -119,6 +119,7 @@ export function useChatEngine(userId?: string): ChatEngine {
   const threadLengthRef = useRef(0);
   const lastCommandTimeRef = useRef(0);
   const prevSessionIdRef = useRef<string | null>(null);
+  const creatingSessionRef = useRef(false);
   // Keep length ref in sync
   useEffect(() => {
     threadLengthRef.current = thread.length;
@@ -163,6 +164,12 @@ export function useChatEngine(userId?: string): ChatEngine {
     if (prev === null && activeSessionId === null) return;
     // No change
     if (prev === activeSessionId) return;
+
+    // Skip cleanup when a session was just created for the first message
+    if (creatingSessionRef.current) {
+      creatingSessionRef.current = false;
+      return;
+    }
 
     // Cleanup from previous session
     abort();
@@ -219,6 +226,7 @@ export function useChatEngine(userId?: string): ChatEngine {
     // Lazy session creation
     let sessionId = activeSessionId;
     if (!sessionId) {
+      creatingSessionRef.current = true;
       sessionId = await createSession(text.slice(0, 60));
       if (!sessionId) {
         setSessionError(true);
