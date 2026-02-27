@@ -8,6 +8,8 @@ import { skillRegistry } from '../registry';
 import type { SkillInput, SkillOutput, InsightBlock } from '../types';
 import { getServerSupabase } from '@/lib/supabase-server';
 import { generateRecommendations } from '@/lib/intelligence/recommendation-engine';
+
+const QUERY_TIMEOUT_MS = 3_000;
 import type { SynthesisInput, RecommendationPriority } from '@/lib/intelligence/recommendation-engine';
 import { calculateKpiTrend } from '@/lib/predictions/simple-forecast';
 import type { CardType } from '@/lib/preference-service';
@@ -30,16 +32,21 @@ async function handler(_input: SkillInput): Promise<SkillOutput> {
   try {
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
 
-    const [perfResult, tasksResult] = await Promise.all([
-      supabase
-        .from('channel_performance')
-        .select('date, messages_sent, replies, meetings_booked, revenue_won')
-        .gte('date', sevenDaysAgo)
-        .order('date', { ascending: true }),
-      supabase
-        .from('autonomous_tasks')
-        .select('id, status')
-        .limit(50),
+    const [perfResult, tasksResult] = await Promise.race([
+      Promise.all([
+        supabase
+          .from('channel_performance')
+          .select('date, messages_sent, replies, meetings_booked, revenue_won')
+          .gte('date', sevenDaysAgo)
+          .order('date', { ascending: true }),
+        supabase
+          .from('autonomous_tasks')
+          .select('id, status')
+          .limit(50),
+      ]),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Supabase query timeout')), QUERY_TIMEOUT_MS)
+      ),
     ]);
 
     const perfRows = perfResult.data ?? [];

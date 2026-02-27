@@ -12,10 +12,7 @@ import { authenticate } from '@/lib/api-auth';
 // ---------------------------------------------------------------------------
 
 function sseFrame(event: string, data: unknown): string {
-  const json = JSON.stringify(data);
-  // SSE spec: each line of data must be prefixed with "data: "
-  const dataLines = json.split('\n').map((line) => `data: ${line}`).join('\n');
-  return `event: ${event}\n${dataLines}\n\n`;
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
 function statusFrame(phase: StatusPhase, message: string, extra?: Partial<StatusEvent>): string {
@@ -127,6 +124,8 @@ export async function POST(req: NextRequest) {
         // 1. Match skill
         controller.enqueue(encoder.encode(statusFrame('matching', 'Understanding your request...')));
         const match = matchFromText(userText, skillContext);
+        console.log(`[command] skill matched: ${match?.skillId ?? 'none'}, starting execution`);
+        const skillStart = Date.now();
 
         // 2. Execute skill
         let skillOutput: SkillOutput;
@@ -148,6 +147,7 @@ export async function POST(req: NextRequest) {
           controller.enqueue(encoder.encode(statusFrame('executing', 'Processing...')));
           skillOutput = await executeFromText(userText, skillContext);
         }
+        console.log(`[command] skill executed in ${Date.now() - skillStart}ms, OpenClaw available: ${isOpenClawChatAvailable()}`);
         controller.enqueue(encoder.encode(sseFrame('skill-result', skillOutput)));
 
         // 3. Stream OpenClaw chat if available
@@ -156,6 +156,7 @@ export async function POST(req: NextRequest) {
           try {
             const messages = buildOpenClawMessages(userText, skillOutput);
             const sessionUserId = userId || 'anonymous';
+            console.log(`[command] starting OpenClaw stream for userId=${sessionUserId}`);
             let firstChunk = true;
 
             for await (const chunk of streamChatCompletion({
@@ -174,6 +175,7 @@ export async function POST(req: NextRequest) {
             }
           } catch (err) {
             const message = err instanceof Error ? err.message : 'Zetty unavailable';
+            console.log(`[command] OpenClaw error: ${message}`);
             const hint = (err as Error & { hint?: string })?.hint;
             controller.enqueue(
               encoder.encode(

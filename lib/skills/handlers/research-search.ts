@@ -10,6 +10,8 @@ import { skillRegistry } from '../registry';
 import type { SkillInput, SkillOutput, TableBlock, InsightBlock } from '../types';
 import { getServerSupabase } from '@/lib/supabase-server';
 
+const QUERY_TIMEOUT_MS = 3_000;
+
 const TABLE_COLUMNS = [
   { key: 'source', label: 'Source', format: 'badge' as const },
   { key: 'name', label: 'Name', format: 'text' as const },
@@ -65,7 +67,12 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
         query = buildIlikeFilter(query, 'company_industry', industries) as typeof query;
       }
 
-      const { data } = await query;
+      const { data } = await Promise.race([
+        query,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Supabase query timeout')), QUERY_TIMEOUT_MS)
+        ),
+      ]);
 
       if (data && data.length > 0) {
         const gradeMap: Record<string, string> = { a: 'A+', b: 'B+', c: 'C', d: 'D', f: 'F' };

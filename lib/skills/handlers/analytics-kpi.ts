@@ -9,6 +9,8 @@ import type { SkillInput, SkillOutput, MetricsBlock, ChartBlock, InsightBlock } 
 import { getServerSupabase } from '@/lib/supabase-server';
 import { calculateTrend } from '@/lib/predictions/simple-forecast';
 
+const QUERY_TIMEOUT_MS = 3_000;
+
 type MetricDef = {
   key: string;
   label: string;
@@ -43,11 +45,16 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
   try {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
 
-    const { data: rows, error } = await supabase
-      .from('channel_performance')
-      .select('date, messages_sent, replies, meetings_booked, revenue_won')
-      .gte('date', thirtyDaysAgo)
-      .order('date', { ascending: true });
+    const { data: rows, error } = await Promise.race([
+      supabase
+        .from('channel_performance')
+        .select('date, messages_sent, replies, meetings_booked, revenue_won')
+        .gte('date', thirtyDaysAgo)
+        .order('date', { ascending: true }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Supabase query timeout')), QUERY_TIMEOUT_MS)
+      ),
+    ]);
 
     if (error || !rows || rows.length < 2) {
       return mockResponse(metric.label, Date.now() - start);

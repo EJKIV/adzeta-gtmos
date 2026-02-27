@@ -6,10 +6,14 @@
  * - Chat completion streaming (SSE-based)
  */
 
-// Environment configuration
-const OPENCLAW_GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL;
-const OPENCLAW_GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN;
-const OPENCLAW_AGENT_ID = process.env.OPENCLAW_AGENT_ID;
+// Environment configuration — accessed via getter so process.env is read at
+// call time, not module-evaluation time (Next.js App Router may not have env
+// vars available when server modules are first imported).
+const env = {
+  get OPENCLAW_GATEWAY_URL() { return process.env.OPENCLAW_GATEWAY_URL; },
+  get OPENCLAW_GATEWAY_TOKEN() { return process.env.OPENCLAW_GATEWAY_TOKEN; },
+  get OPENCLAW_AGENT_ID() { return process.env.OPENCLAW_AGENT_ID; },
+};
 
 // Default timeout for chat completions (60 seconds)
 const DEFAULT_CHAT_TIMEOUT = 60000;
@@ -40,7 +44,7 @@ interface OpenClawDiagnostic {
  * private IP that is only reachable when the VPN is up.
  */
 function diagnoseOpenClawError(error: unknown, context: string): OpenClawDiagnostic {
-  const gatewayUrl = OPENCLAW_GATEWAY_URL || '(not set)';
+  const gatewayUrl = env.OPENCLAW_GATEWAY_URL || '(not set)';
   const raw = error instanceof Error ? error.message : String(error);
   const code = (error as NodeJS.ErrnoException)?.code;
   const cause = (error as { cause?: { code?: string } })?.cause;
@@ -113,7 +117,7 @@ function diagnoseOpenClawError(error: unknown, context: string): OpenClawDiagnos
 
 /** Classify an HTTP status code from the gateway */
 function diagnoseHttpStatus(status: number, body: string, context: string): OpenClawDiagnostic {
-  const gatewayUrl = OPENCLAW_GATEWAY_URL || '(not set)';
+  const gatewayUrl = env.OPENCLAW_GATEWAY_URL || '(not set)';
 
   if (status === 401 || status === 403) {
     return {
@@ -138,8 +142,8 @@ function logDiagnostic(diag: OpenClawDiagnostic) {
       kind: diag.kind,
       message: diag.message,
       hint: diag.hint,
-      gatewayUrl: OPENCLAW_GATEWAY_URL || null,
-      agentId: OPENCLAW_AGENT_ID || null,
+      gatewayUrl: env.OPENCLAW_GATEWAY_URL || null,
+      agentId: env.OPENCLAW_AGENT_ID || null,
       ts: new Date().toISOString(),
     })
   );
@@ -150,7 +154,7 @@ function logDiagnostic(diag: OpenClawDiagnostic) {
  * Requires gateway URL and token
  */
 export function isOpenClawAvailable(): boolean {
-  return !!OPENCLAW_GATEWAY_URL && !!OPENCLAW_GATEWAY_TOKEN;
+  return !!env.OPENCLAW_GATEWAY_URL && !!env.OPENCLAW_GATEWAY_TOKEN;
 }
 
 /**
@@ -158,7 +162,7 @@ export function isOpenClawAvailable(): boolean {
  * Requires gateway URL, token, AND agent ID
  */
 export function isOpenClawChatAvailable(): boolean {
-  return !!OPENCLAW_GATEWAY_URL && !!OPENCLAW_GATEWAY_TOKEN && !!OPENCLAW_AGENT_ID;
+  return !!env.OPENCLAW_GATEWAY_URL && !!env.OPENCLAW_GATEWAY_TOKEN && !!env.OPENCLAW_AGENT_ID;
 }
 
 interface OpenClawToolResponse<T = unknown> {
@@ -187,11 +191,11 @@ export async function invokeOpenClawTool<T = unknown>(
   }
 
   try {
-    const response = await fetch(`${OPENCLAW_GATEWAY_URL}/v1/tools/invoke`, {
+    const response = await fetch(`${env.OPENCLAW_GATEWAY_URL}/v1/tools/invoke`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENCLAW_GATEWAY_TOKEN}`,
+        'Authorization': `Bearer ${env.OPENCLAW_GATEWAY_TOKEN}`,
       },
       body: JSON.stringify({
         tool,
@@ -333,7 +337,7 @@ export async function* streamChatCompletion(
   ];
 
   const requestBody = {
-    model: `openclaw:${OPENCLAW_AGENT_ID}`,
+    model: `openclaw:${env.OPENCLAW_AGENT_ID}`,
     messages: system 
       ? [{ role: 'system', content: system }, ...messages]
       : messages,
@@ -342,13 +346,13 @@ export async function* streamChatCompletion(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${OPENCLAW_GATEWAY_TOKEN}`,
+    'Authorization': `Bearer ${env.OPENCLAW_GATEWAY_TOKEN}`,
     'Accept': 'text/event-stream',
     'x-openclaw-session-key': sessionKey,
   };
 
   try {
-    const response = await fetch(`${OPENCLAW_GATEWAY_URL}/v1/chat/completions`, {
+    const response = await fetch(`${env.OPENCLAW_GATEWAY_URL}/v1/chat/completions`, {
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),

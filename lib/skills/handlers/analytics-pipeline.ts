@@ -8,6 +8,8 @@ import { skillRegistry } from '../registry';
 import type { SkillInput, SkillOutput, MetricsBlock, ChartBlock, InsightBlock } from '../types';
 import { getServerSupabase } from '@/lib/supabase-server';
 
+const QUERY_TIMEOUT_MS = 3_000;
+
 async function handler(_input: SkillInput): Promise<SkillOutput> {
   const start = Date.now();
   const supabase = getServerSupabase();
@@ -19,20 +21,25 @@ async function handler(_input: SkillInput): Promise<SkillOutput> {
   try {
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
 
-    const [perfResult, prospectsResult, sequencesResult] = await Promise.all([
-      supabase
-        .from('channel_performance')
-        .select('date, messages_sent, replies, meetings_booked, reply_rate, revenue_won')
-        .gte('date', sevenDaysAgo)
-        .order('date', { ascending: true }),
-      supabase
-        .from('prospects')
-        .select('id')
-        .in('quality_score', ['a', 'b']),
-      supabase
-        .from('outreach_sequences')
-        .select('id')
-        .eq('status', 'active'),
+    const [perfResult, prospectsResult, sequencesResult] = await Promise.race([
+      Promise.all([
+        supabase
+          .from('channel_performance')
+          .select('date, messages_sent, replies, meetings_booked, reply_rate, revenue_won')
+          .gte('date', sevenDaysAgo)
+          .order('date', { ascending: true }),
+        supabase
+          .from('prospects')
+          .select('id')
+          .in('quality_score', ['a', 'b']),
+        supabase
+          .from('outreach_sequences')
+          .select('id')
+          .eq('status', 'active'),
+      ]),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Supabase query timeout')), QUERY_TIMEOUT_MS)
+      ),
     ]);
 
     const perfRows = perfResult.data ?? [];
