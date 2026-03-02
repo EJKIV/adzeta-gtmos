@@ -18,6 +18,23 @@ CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
 CREATE INDEX IF NOT EXISTS idx_profiles_is_employee ON profiles(is_employee);
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
 
+-- Helper functions that bypass RLS (SECURITY DEFINER) to avoid infinite recursion
+CREATE OR REPLACE FUNCTION public.is_employee(check_id UUID)
+RETURNS BOOLEAN AS $$
+    SELECT COALESCE(
+        (SELECT is_employee FROM public.profiles WHERE id = check_id),
+        false
+    );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+CREATE OR REPLACE FUNCTION public.is_admin(check_id UUID)
+RETURNS BOOLEAN AS $$
+    SELECT COALESCE(
+        (SELECT role = 'admin' FROM public.profiles WHERE id = check_id),
+        false
+    );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
 -- RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
@@ -25,17 +42,13 @@ CREATE POLICY "Users can view own profile" ON profiles
     FOR SELECT USING (auth.uid() = id);
 
 CREATE POLICY "Employees can view all profiles" ON profiles
-    FOR SELECT USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_employee = true)
-    );
+    FOR SELECT USING (public.is_employee(auth.uid()));
 
 CREATE POLICY "Users can update own profile" ON profiles
     FOR UPDATE USING (auth.uid() = id);
 
 CREATE POLICY "Admins can update any profile" ON profiles
-    FOR UPDATE USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-    );
+    FOR UPDATE USING (public.is_admin(auth.uid()));
 
 CREATE POLICY "Allow insert on signup" ON profiles
     FOR INSERT WITH CHECK (auth.uid() = id);
