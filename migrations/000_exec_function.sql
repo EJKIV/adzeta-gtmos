@@ -1,5 +1,7 @@
--- Migration: Create exec_sql function for running migrations
--- This function allows executing arbitrary SQL via RPC
+-- ================================================================
+-- Migration 000: exec_sql RPC function
+-- Required by the migration runner to execute SQL via Supabase REST API
+-- ================================================================
 
 CREATE OR REPLACE FUNCTION exec_sql(sql text)
 RETURNS void
@@ -11,6 +13,5 @@ BEGIN
 END;
 $$;
 
--- Grant execute permission to authenticated users
 GRANT EXECUTE ON FUNCTION exec_sql(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION exec_sql(text) TO service_role;

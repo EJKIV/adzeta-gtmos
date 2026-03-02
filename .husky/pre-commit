@@ -14,18 +14,8 @@ if [ -n "$STAGED_MIGRATIONS" ]; then
     echo "   (Production migrations must be run separately!)"
     echo ""
     
-    # Run migrations
-    if node scripts/run-migrations.mjs; then
-        echo "✅ Local migrations completed"
-        echo ""
-        echo "⚠️  REMEMBER: Production database needs manual migration!"
-        echo "   Run: npx supabase db push"
-        echo "   Or:  Copy SQL to Supabase Dashboard SQL Editor"
-        echo ""
-    else
-        echo "❌ Migration failed! Fix errors before committing."
-        exit 1
-    fi
+    echo "⚠️  Migration files changed. After pushing, run against each environment:"
+    echo "   node scripts/migrate-production.mjs"
 else
     echo "✓ No new migrations to run"
 fi
