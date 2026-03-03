@@ -11,6 +11,7 @@
 
 import { skillRegistry } from '../registry';
 import { generateClarificationQuestions, applyAnswers } from '@/lib/clarification/engine';
+import { getSupabaseClient } from '@/lib/supabase/environment';
 import type { SkillInput, SkillOutput, InsightBlock, ActionBlock } from '../types';
 
 async function handler(input: SkillInput): Promise<SkillOutput> {
@@ -37,8 +38,8 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
     intent: currentIntent,
     depth,
     mode: 'follow_up',
-    userId: input.context?.userId,
-    supabase: input.context?.supabase,
+    userId: input.context?.userId ?? '',
+    supabase: getSupabaseClient('dev', true),
   });
 
   // Build blocks for response
@@ -71,21 +72,13 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
 
   return {
     skillId: 'system.clarify_intent',
-    status: clarification.ready ? 'success' : 'needs_more_info',
-    // Returns questions inline - does NOT pause workflow
+    status: clarification.ready ? 'success' : 'partial',
     blocks,
-    // Pass intent forward for next skill
-    result: {
-      intent: currentIntent,
-      confidence: clarification.confidence,
-      ready: clarification.ready,
-      depth: depth + 1,
-      next: clarification.nextStep,
-    },
-    // Continue to next skill or ask more
     followUps: clarification.ready
       ? [{ label: 'Proceed', command: clarification.nextStep?.action || 'create campaign' }]
       : [],
+    executionMs: 0,
+    dataFreshness: 'live',
   };
 }
 
@@ -102,9 +95,9 @@ skillRegistry.register({
   },
   responseType: ['insight', 'action'],
   triggerPatterns: [
-    '\b(start|create|launch|setup|make)\s+(?:a\s+)?(sequence|campaign|outreach)\b',
+    '\\b(start|create|launch|setup|make)\\s+(?:a\\s+)?(sequence|campaign|outreach)\\b',
   ],
-  requiredContext: ['current_page', 'user'],
   estimatedMs: 200,
+  examples: ['start a new campaign', 'create outreach sequence', 'launch a campaign'],
   handler,
 });

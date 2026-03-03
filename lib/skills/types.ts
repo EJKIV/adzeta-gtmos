@@ -70,6 +70,7 @@ export type ResponseBlock =
   | TableBlock
   | InsightBlock
   | ConfirmationBlock
+  | ActionBlock
   | ProgressBlock
   | ErrorBlock
   | TextBlock;
@@ -138,6 +139,21 @@ export interface ConfirmationBlock {
     approve: { label: string; command: string };
     reject: { label: string; command: string };
   };
+}
+
+export interface ActionBlock {
+  type: 'action';
+  label: string;
+  actions: {
+    id: string;
+    type: 'button' | 'choice' | 'confirm' | 'text';
+    label: string;
+    description?: string;
+    command?: string;
+    placeholder?: string;
+    options?: Array<{ label: string; value: unknown; description?: string }>;
+    payload?: Record<string, unknown>;
+  }[];
 }
 
 export interface ProgressBlock {

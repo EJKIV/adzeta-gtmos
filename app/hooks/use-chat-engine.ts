@@ -147,7 +147,7 @@ export function useChatEngine(optionsOrUserId?: UseChatEngineOptions | string): 
           status: data.ready ? 'success' : 'needs_more_info',
           blocks: [], // Will be populated by SSE
         },
-        status: data.ready ? 'completed' : 'needs_more_info',
+        status: data.ready ? 'completed' : 'pending',
       });
 
       setClarificationState({

@@ -26,6 +26,8 @@ function BlockRenderer({ block, onAction }: { block: ResponseBlock; onAction?: (
       return <ProgressRenderer block={block} />;
     case 'text':
       return <TextRenderer block={block} />;
+    case 'action':
+      return null;
     case 'error':
       return (
         <div

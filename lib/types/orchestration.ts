@@ -6,15 +6,16 @@
 import type { OracleBlock } from '@/components/oracle-blocks/types';
 
 /** Command status lifecycle */
-export type CommandStatus = 
-  | 'pending' 
-  | 'parsing' 
-  | 'routing' 
-  | 'executing' 
-  | 'completed' 
-  | 'failed' 
+export type CommandStatus =
+  | 'pending'
+  | 'parsing'
+  | 'routing'
+  | 'executing'
+  | 'completed'
+  | 'failed'
   | 'cancelled'
-  | 'pending_review'; // Added for approval workflow
+  | 'pending_review'
+  | 'needs_more_info';
 
 /** Agent roles in the system */
 export type AgentRole = 
@@ -124,7 +125,8 @@ export const STATUS_BADGE_CONFIG: Record<CommandStatus, StatusBadgeConfig> = {
   completed: { color: 'green', text: 'Done' },
   failed: { color: 'red', text: 'Failed' },
   cancelled: { color: 'gray', text: 'Cancelled' },
-  pending_review: { color: 'amber', text: 'Review Required' },
+  pending_review: { color: 'orange', text: 'Review Required' },
+  needs_more_info: { color: 'blue', text: 'More info needed' },
 };
 
 /** Thread entry for orchestrator-integrated chat */

@@ -45,10 +45,11 @@ interface IntentProbe {
   label: string;
   
   // How to check if we have this info
-  hasValue: (intent: Record<string, unknown>) => boolean;
-  
-  // Get current value
-  getValue: (intent: Record<string, unknown>) => unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  hasValue: (intent: any) => boolean;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getValue: (intent: any) => unknown;
   
   // Questions to ask if missing
   questions: {
@@ -68,11 +69,11 @@ const CAMPAIGN_PROBES: IntentProbe[] = [
   {
     key: 'job_titles',
     label: 'Job Titles',
-    hasValue: (i) => {
-      const titles = (i?.icp?.titles || i?.targeting?.titles) as string[] | undefined;
-      return titles?.length > 0 || false;
+    hasValue: (i: Record<string, unknown>) => {
+      const titles = ((i?.icp as Record<string, unknown>)?.titles || (i?.targeting as Record<string, unknown>)?.titles) as string[] | undefined;
+      return (titles?.length ?? 0) > 0;
     },
-    getValue: (i) => (i?.icp?.titles || i?.targeting?.titles) as string[] | undefined,
+    getValue: (i: Record<string, unknown>) => ((i?.icp as Record<string, unknown>)?.titles || (i?.targeting as Record<string, unknown>)?.titles) as string[] | undefined,
     questions: [
       {
         question: 'Who are we targeting? Pick the most important roles:',
@@ -127,11 +128,11 @@ const CAMPAIGN_PROBES: IntentProbe[] = [
   {
     key: 'industry',
     label: 'Industry',
-    hasValue: (i) => {
-      const ind = (i?.icp?.industries || i?.targeting?.industries) as string[] | undefined;
-      return ind?.length > 0 || false;
+    hasValue: (i: Record<string, unknown>) => {
+      const ind = ((i?.icp as Record<string, unknown>)?.industries || (i?.targeting as Record<string, unknown>)?.industries) as string[] | undefined;
+      return (ind?.length ?? 0) > 0;
     },
-    getValue: (i) => (i?.icp?.industries || i?.targeting?.industries) as string[] | undefined,
+    getValue: (i: Record<string, unknown>) => ((i?.icp as Record<string, unknown>)?.industries || (i?.targeting as Record<string, unknown>)?.industries) as string[] | undefined,
     questions: [
       {
         question: 'Any specific industries?',
@@ -169,11 +170,11 @@ const CAMPAIGN_PROBES: IntentProbe[] = [
   {
     key: 'company_size',
     label: 'Company Size',
-    hasValue: (i) => {
-      const size = (i?.icp?.companySize || i?.targeting?.companySize) as string | undefined;
+    hasValue: (i: Record<string, unknown>) => {
+      const size = ((i?.icp as Record<string, unknown>)?.companySize || (i?.targeting as Record<string, unknown>)?.companySize) as string | undefined;
       return size !== undefined || false;
     },
-    getValue: (i) => (i?.icp?.companySize || i?.targeting?.companySize) as string | undefined,
+    getValue: (i: Record<string, unknown>) => ((i?.icp as Record<string, unknown>)?.companySize || (i?.targeting as Record<string, unknown>)?.companySize) as string | undefined,
     questions: [
       {
         question: 'Company size range?',
@@ -218,11 +219,11 @@ const CAMPAIGN_PROBES: IntentProbe[] = [
   {
     key: 'campaign_type',
     label: 'Campaign Type',
-    hasValue: (i) => {
-      const type = (i?.campaign?.type || i?.type) as string | undefined;
+    hasValue: (i: Record<string, unknown>) => {
+      const type = ((i?.campaign as Record<string, unknown>)?.type || i?.type) as string | undefined;
       return type !== undefined || false;
     },
-    getValue: (i) => (i?.campaign?.type || i?.type) as string | undefined,
+    getValue: (i: Record<string, unknown>) => ((i?.campaign as Record<string, unknown>)?.type || i?.type) as string | undefined,
     questions: [
       {
         question: 'What kind of outreach?',
@@ -262,11 +263,11 @@ const CAMPAIGN_PROBES: IntentProbe[] = [
   {
     key: 'timing',
     label: 'Timing',
-    hasValue: (i) => {
-      const when = (i?.campaign?.timing || i?.when) as string | undefined;
+    hasValue: (i: Record<string, unknown>) => {
+      const when = ((i?.campaign as Record<string, unknown>)?.timing || i?.when) as string | undefined;
       return when !== undefined || false;
     },
-    getValue: (i) => (i?.campaign?.timing || i?.when) as string | undefined,
+    getValue: (i: Record<string, unknown>) => ((i?.campaign as Record<string, unknown>)?.timing || i?.when) as string | undefined,
     questions: [
       {
         question: 'When should this launch?',
@@ -306,7 +307,7 @@ function calculateConfidence(intent: Record<string, unknown>): number {
   }
   
   // Bonus for having multiple targeting criteria
-  const titles = (intent?.icp?.titles || intent?.targeting?.titles) as string[] | undefined;
+  const titles = ((intent?.icp as Record<string, unknown>)?.titles || (intent?.targeting as Record<string, unknown>)?.titles) as string[] | undefined;
   if (titles && titles.length > 1) confidence += 0.05;
   
   // Cap at 1.0
@@ -356,13 +357,13 @@ function generateMessage(intent: Record<string, unknown>, confidence: number): s
 function describeAudience(intent: Record<string, unknown>): string {
   const parts: string[] = [];
   
-  const titles = ((intent?.icp?.titles || intent?.targeting?.titles) as string[] | undefined)?.slice(0, 2);
+  const titles = (((intent?.icp as Record<string, unknown>)?.titles || (intent?.targeting as Record<string, unknown>)?.titles) as string[] | undefined)?.slice(0, 2);
   if (titles) parts.push(titles.join(' and '));
   
-  const industries = ((intent?.icp?.industries || intent?.targeting?.industries) as string[] | undefined)?.slice(0, 2);
+  const industries = (((intent?.icp as Record<string, unknown>)?.industries || (intent?.targeting as Record<string, unknown>)?.industries) as string[] | undefined)?.slice(0, 2);
   if (industries) parts.push(`in ${industries.join(' and ')}`);
   
-  const size = (intent?.icp?.companySize || intent?.targeting?.companySize) as string | undefined;
+  const size = ((intent?.icp as Record<string, unknown>)?.companySize || (intent?.targeting as Record<string, unknown>)?.companySize) as string | undefined;
   if (size && size !== 'any') parts.push(`(${size} employees)`);
   
   return parts.length > 0 ? parts.join(' ') : 'your criteria';
@@ -507,8 +508,8 @@ export function shouldContinueClarifying(
   if (depth >= 3) return false;
   
   // Continue if missing required info
-  const titles = ((intent?.icp?.titles || intent?.targeting?.titles) as string[] | undefined)?.length || 0;
-  const campaignType = (intent?.campaign?.type || intent?.type) as string | undefined;
+  const titles = (((intent?.icp as Record<string, unknown>)?.titles || (intent?.targeting as Record<string, unknown>)?.titles) as string[] | undefined)?.length || 0;
+  const campaignType = ((intent?.campaign as Record<string, unknown>)?.type || intent?.type) as string | undefined;
   
   // Must have at least titles OR campaign type
   if (titles === 0 && !campaignType) return true;

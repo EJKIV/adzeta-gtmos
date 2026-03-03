@@ -6,8 +6,8 @@ import { generateClarificationQuestions, applyAnswers } from '@/lib/clarificatio
 
 const clarifySchema = z.object({
   command_id: z.string(),
-  intent: z.record(z.unknown()),
-  answers: z.record(z.unknown()).optional(), // User's answers to previous questions
+  intent: z.record(z.string(), z.unknown()),
+  answers: z.record(z.string(), z.unknown()).optional(), // User's answers to previous questions
   depth: z.number().default(0), // How many clarification rounds so far
   mode: z.enum(['initial', 'follow_up', 'confirm']).default('initial'),
 });
@@ -96,21 +96,21 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/oracle/clarify/[command_id]
- * 
+ * GET /api/oracle/clarify?command_id=...
+ *
  * Get current clarification state for a command
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { command_id: string } }
-) {
+export async function GET(request: NextRequest) {
   try {
     const auth = await authenticate(request);
     if (!auth.ok) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { command_id } = params;
+    const command_id = new URL(request.url).searchParams.get('command_id');
+    if (!command_id) {
+      return NextResponse.json({ error: 'Missing command_id' }, { status: 400 });
+    }
     const userId = auth.userId!;
     const supabase = getSupabaseClient('dev', true);
 

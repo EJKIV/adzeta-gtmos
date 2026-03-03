@@ -57,10 +57,11 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
     testProspects?: string[];
   };
 
-  const supabase = input.context?.supabase;
+  const { getSupabaseClient } = await import('@/lib/supabase/environment');
+  const supabase = getSupabaseClient('dev', true);
   const userId = input.context?.userId;
 
-  if (!supabase || !userId) {
+  if (!userId) {
     return {
       skillId: 'workflow.create_campaign',
       status: 'error',
@@ -75,12 +76,14 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
     };
   }
 
-  // Extract intent components
-  const titles = (intent.icp?.titles || intent.targeting?.titles || []) as string[];
-  const industries = (intent.icp?.industries || intent.targeting?.industries || []) as string[] | undefined;
-  const companySize = (intent.icp?.companySize || intent.targeting?.companySize) as string | undefined;
-  const campaignType = (intent.campaign?.type || intent.type || 'email_sequence') as string;
-  const signals = (intent.icp?.signals || intent.signals || []) as string[];
+  // Extract intent components — intent has nested structure so cast to `any`
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const i = intent as any;
+  const titles = (i.icp?.titles || i.targeting?.titles || []) as string[];
+  const industries = (i.icp?.industries || i.targeting?.industries || []) as string[] | undefined;
+  const companySize = (i.icp?.companySize || i.targeting?.companySize) as string | undefined;
+  const campaignType = (i.campaign?.type || i.type || 'email_sequence') as string;
+  const signals = (i.icp?.signals || i.signals || []) as string[];
 
   // Validate minimum required fields
   if (titles.length === 0) {
@@ -396,11 +399,6 @@ async function handler(input: SkillInput): Promise<SkillOutput> {
     ],
     executionMs: Date.now() - startTime,
     dataFreshness: 'live',
-    result: {
-      campaignId: campaign.id,
-      sequenceId: sequence.id,
-      enrolledCount: prospectCount,
-    },
   };
 }
 

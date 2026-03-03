@@ -116,7 +116,7 @@ export function ActionButtons({ actions, onAction, className }: ActionButtonsPro
             ))}
           </div>
         </div>
-      )}
+      ))}
 
       {/* Text Input Actions */}
       {textActions.length > 0 && (

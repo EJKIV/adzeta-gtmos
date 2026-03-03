@@ -69,6 +69,11 @@ function TaskCard({
             )}
           </div>
           <p className="font-medium truncate">{task.title}</p>
+          {!expanded && (task.rationale || task.description) && (
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+              {task.rationale || task.description}
+            </p>
+          )}
         </div>
         <span className="text-xs text-muted-foreground ml-2 whitespace-nowrap">
           {timeAgo(task.created_at)}
