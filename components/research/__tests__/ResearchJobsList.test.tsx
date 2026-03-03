@@ -1,34 +1,35 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 import { ResearchJobsList } from '../ResearchJobsList';
 import { ResearchJob } from '@/lib/research/types';
 
 // Mock Supabase client
-const mockSubscribe = jest.fn();
-const mockUnsubscribe = jest.fn();
-const mockChannel = jest.fn();
-const mockFrom = jest.fn();
-const mockSelect = jest.fn();
-const mockEq = jest.fn();
-const mockOrder = jest.fn();
+const mockSubscribe = vi.fn();
+const mockUnsubscribe = vi.fn();
+const mockChannel = vi.fn();
+const mockFrom = vi.fn();
+const mockSelect = vi.fn();
+const mockEq = vi.fn();
+const mockOrder = vi.fn();
 
-jest.mock('@/lib/supabase-client', () => ({
-  getSupabaseClient: jest.fn(() => ({
+vi.mock('@/lib/supabase-client', () => ({
+  getSupabaseClient: vi.fn(() => ({
     from: mockFrom,
     channel: mockChannel,
   })),
 }));
 
 // Mock next/navigation
-jest.mock('next/navigation', () => ({
+vi.mock('next/navigation', () => ({
   useRouter: () => ({
-    refresh: jest.fn(),
+    refresh: vi.fn(),
   }),
 }));
 
 // Mock timers
-jest.useFakeTimers();
+vi.useFakeTimers();
 
 describe('ResearchJobsList', () => {
   const mockUserId = 'user-123';
@@ -104,7 +105,7 @@ describe('ResearchJobsList', () => {
   ];
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup mock chain
     mockOrder.mockResolvedValue({ data: mockJobs, error: null });
@@ -112,7 +113,7 @@ describe('ResearchJobsList', () => {
     mockSelect.mockReturnValue({ eq: mockEq });
     mockFrom.mockReturnValue({ select: mockSelect });
     mockChannel.mockReturnValue({
-      on: jest.fn().mockReturnThis(),
+      on: vi.fn().mockReturnThis(),
       subscribe: mockSubscribe.mockReturnValue({
         unsubscribe: mockUnsubscribe,
       }),
@@ -316,7 +317,7 @@ describe('ResearchJobsList', () => {
 
     // Fast-forward 5 seconds
     act(() => {
-      jest.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(5000);
     });
 
     await waitFor(() => {

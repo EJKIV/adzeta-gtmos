@@ -4,6 +4,30 @@
  * Custom React hooks for UI state, personalization, and interactions.
  */
 
+// Approval status polling
+export { 
+  useApprovalStatus, 
+  useApprovalStatusChanged,
+  useApprovalCompleted 
+} from './use-approval-status';
+export type { 
+  ApprovalStatus, 
+  ApprovalStatusResponse, 
+  UseApprovalStatusOptions, 
+  UseApprovalStatusReturn 
+} from './use-approval-status';
+
+// Task feedback with offline persistence
+export {
+  useTaskFeedback,
+} from './use-task-feedback';
+export type {
+  TaskFeedbackPayload,
+  TaskFeedbackResponse,
+  PendingFeedback,
+  UseTaskFeedbackReturn,
+} from './use-task-feedback';
+
 // Dwell time tracking
 export { useDwellTime, DwellTimeTracker } from './use-dwell-time';
 export type { DwellTimeConfig, DwellTimeEvent, DwellTimeTrackerProps } from './use-dwell-time';
@@ -36,3 +60,16 @@ export {
 export type {
   PersonalizationState as LegacyPersonalizationState,
 } from './use-personalization';
+
+// Events stream
+export {
+  useEventsStream,
+  useEventDetail,
+} from './use-events-stream';
+export type {
+  EventsFilter,
+  EventsMetrics,
+  EventsResponse,
+  UseEventsStreamOptions,
+  UseEventsStreamReturn,
+} from './use-events-stream';

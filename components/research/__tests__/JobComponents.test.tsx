@@ -1,25 +1,26 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 import { JobStatsCards } from '../JobStatsCards';
 import { JobProgressBar } from '../JobProgressBar';
 import { JobActions } from '../JobActions';
 import { ResearchJob } from '@/lib/research/types';
 
-const mockUpdate = jest.fn();
-const mockEq = jest.fn().mockReturnThis();
-const mockFrom = jest.fn().mockReturnValue({ update: mockUpdate, eq: mockEq });
+const mockUpdate = vi.fn();
+const mockEq = vi.fn().mockReturnThis();
+const mockFrom = vi.fn().mockReturnValue({ update: mockUpdate, eq: mockEq });
 
-jest.mock('@/lib/supabase-client', () => ({
-  getSupabaseClient: jest.fn(() => ({
+vi.mock('@/lib/supabase-client', () => ({
+  getSupabaseClient: vi.fn(() => ({
     from: mockFrom,
   })),
 }));
 
-jest.useFakeTimers();
+vi.useFakeTimers();
 
 // Mock formatNumber
-jest.mock('@/lib/utils', () => ({
+vi.mock('@/lib/utils', () => ({
   cn: (...inputs: any[]) => inputs.filter(Boolean).join(' '),
   formatNumber: (num: number) => num?.toString() || '—',
 }));
@@ -245,11 +246,11 @@ describe('JobProgressBar', () => {
 
 describe('JobActions', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockUpdate.mockResolvedValue({ error: null });
   });
 
-  const mockOnAction = jest.fn();
+  const mockOnAction = vi.fn();
 
   const createMockJob = (status: ResearchJob['status']): ResearchJob => ({
     id: 'job-1',

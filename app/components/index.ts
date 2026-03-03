@@ -107,3 +107,19 @@ export {
 
 // Error Handling
 export { ErrorBoundary, SectionErrorFallback, NetworkErrorFallback } from './error-boundary';
+
+// Chat Components
+export { ApprovalCard } from './chat/approval-card';
+export type {
+  ApprovalCardData,
+  ApprovalRiskLevel,
+  ApprovalStatus,
+} from './chat/approval-card';
+
+// Suggestion Toast
+export { SuggestionToast, SuggestionToastContainer } from './chat/suggestion-toast';
+export type {
+  SuggestionData,
+  SuggestionToastProps,
+  SuggestionToastContainerProps,
+} from './chat/suggestion-toast';

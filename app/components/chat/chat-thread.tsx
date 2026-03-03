@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,8 +9,11 @@ import type {
   CommandStatus,
 } from '@/lib/types/orchestration';
 import { OracleBlockRenderer } from '@/components/oracle-blocks/OracleBlockRenderer';
-import { TaskFeedbackButtons } from '@/app/components/adzeta/task-feedback-buttons';
+import { TaskFeedbackInline } from './task-feedback-inline';
 import { SkeletonMessage } from '@/app/components/skeleton-loader';
+import { ApprovalCard } from './approval-card';
+import { ProgressIndicator } from './progress-indicator';
+import { HeartbeatPulse } from './heartbeat-pulse';
 
 interface ChatThreadProps {
   entries: OrchestratorThreadEntry[];
@@ -23,11 +26,29 @@ interface ChatThreadProps {
   feedbackMap?: Record<string, unknown>;
   onFeedback?: (commandId: string, rating: number) => void;
   sessionId?: string | null;
+  // Approval card integration
+  pendingApprovals?: Record<string, {
+    requiresApproval: boolean;
+    taskId: string | null;
+    title: string;
+    confidence: number;
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  }>;
+  onApproveTask?: (taskId: string, commandId: string, status: string) => void;
+  onRejectTask?: (taskId: string, commandId: string, status: string) => void;
+  onModifyTask?: (taskId: string, commandId: string, status: string) => void;
+  // Progress tracking for long-running tasks
+  activeTaskIds?: Record<string, string>; // commandId -> taskId mapping
+  onTaskRetry?: (taskId: string) => void;
+  onTaskEscalate?: (taskId: string) => void;
+  onViewTaskLogs?: (taskId: string) => void;
   className?: string;
 }
 
-// ── Status indicator ─────────────────────────────────────────────────
+// Long-running task threshold (5 minutes)
+const LONG_RUNNING_THRESHOLD_MS = 5 * 60 * 1000;
 
+// Status indicator
 const STATUS_DEFAULTS: Record<string, { label: string; detail: string }> = {
   pending:        { label: 'Queued',          detail: 'Waiting for an available agent...' },
   pending_review: { label: 'Review Required', detail: 'Awaiting approval in Work Queue...' },
@@ -64,8 +85,7 @@ function StatusIndicator({ status, message }: { status: CommandStatus; message?:
   );
 }
 
-// ── Streaming cursor ─────────────────────────────────────────────────
-
+// Streaming cursor
 function StreamingCursor() {
   return (
     <span
@@ -75,21 +95,75 @@ function StreamingCursor() {
   );
 }
 
-// ── Message entry ────────────────────────────────────────────────────
+// Message entry
+interface MessageEntryProps {
+  entry: OrchestratorThreadEntry;
+  onCancel?: (id: string) => void;
+  onRetry?: (id: string) => void;
+  approvalData?: {
+    requiresApproval: boolean;
+    taskId: string | null;
+    title: string;
+    confidence: number;
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  };
+  onApproveTask?: (taskId: string, commandId: string, status: string) => void;
+  onRejectTask?: (taskId: string, commandId: string, status: string) => void;
+  onModifyTask?: (taskId: string, commandId: string, status: string) => void;
+  activeTaskId?: string | null;
+  onTaskRetry?: (taskId: string) => void;
+  onTaskEscalate?: (taskId: string) => void;
+  onViewTaskLogs?: (taskId: string) => void;
+}
 
 function MessageEntry({
   entry,
   onCancel,
   onRetry,
-}: {
-  entry: OrchestratorThreadEntry;
-  onCancel?: (id: string) => void;
-  onRetry?: (id: string) => void;
-}) {
+  approvalData,
+  onApproveTask,
+  onRejectTask,
+  onModifyTask,
+  activeTaskId,
+  onTaskRetry,
+  onTaskEscalate,
+  onViewTaskLogs,
+}: MessageEntryProps) {
   const isActive = ['pending', 'pending_review', 'parsing', 'routing', 'executing'].includes(entry.status ?? '');
   const isFailed = entry.status === 'failed' || entry.status === 'cancelled';
   const isDone = entry.status === 'completed';
   const isStreaming = entry.isStreaming === true;
+
+  // Track task duration for showing progress
+  const [taskStartedAt] = useState(Date.now());
+  const [showProgress, setShowProgress] = useState(false);
+  const [isCompact, setIsCompact] = useState(false);
+
+  // Detect long-running tasks (> 5 minutes)
+  useEffect(() => {
+    if (!isActive && activeTaskId) {
+      setShowProgress(false);
+      return;
+    }
+
+    const checkDuration = setInterval(() => {
+      const elapsed = Date.now() - taskStartedAt;
+      
+      // Show progress after 30 seconds (for demo) or 5 minutes (real threshold)
+      if (elapsed > 30000 && isActive) {
+        setShowProgress(true);
+      }
+    }, 1000);
+
+    return () => clearInterval(checkDuration);
+  }, [isActive, activeTaskId, taskStartedAt]);
+
+  // Compact mode when task completes
+  useEffect(() => {
+    if (isDone) {
+      setIsCompact(true);
+    }
+  }, [isDone]);
 
   return (
     <motion.div
@@ -98,7 +172,7 @@ function MessageEntry({
       transition={{ duration: 0.15 }}
       className="space-y-3"
     >
-      {/* ── User command (right-aligned) ── */}
+      {/* User command (right-aligned) */}
       {entry.text && (
         <div className="flex justify-end">
           <div
@@ -110,14 +184,47 @@ function MessageEntry({
         </div>
       )}
 
-      {/* ── Bot response area (left-aligned) ── */}
+      {/* Bot response area (left-aligned) */}
       <div className="flex justify-start">
-        <div className="max-w-[92%] space-y-2">
+        <div className="max-w-[96%] w-full space-y-2">
+
+          {/* Progress indicator for long-running tasks */}
+          <AnimatePresence>
+            {showProgress && activeTaskId && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-3"
+              >
+                {isCompact ? (
+                  <HeartbeatPulse
+                    taskId={activeTaskId}
+                    lastUpdateAt={new Date().toISOString()}
+                    status={isDone ? 'completed' : isFailed ? 'failed' : 'running'}
+                    subtasks={[]}
+                  />
+                ) : (
+                  <ProgressIndicator
+                    taskId={activeTaskId}
+                    title={entry.statusMessage || entry.text || 'Task in progress'}
+                    showSteps
+                    showPercentage
+                    showTimeEstimate
+                    showHeartbeat
+                    onRetry={onTaskRetry ? () => onTaskRetry(activeTaskId) : undefined}
+                    onEscalate={onTaskEscalate ? () => onTaskEscalate(activeTaskId) : undefined}
+                    onViewLogs={onViewTaskLogs ? () => onViewTaskLogs(activeTaskId) : undefined}
+                  />
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Status while waiting (no content yet) */}
           {isActive && !entry.response && (!entry.blocks || entry.blocks.length === 0) && (
             <div
-              className="rounded-2xl rounded-bl-md px-4 py-3"
+              className="rounded-2xl rounded-bl-md px-4 py-3 max-w-xl"
               style={{ backgroundColor: 'var(--color-bg-elevated)' }}
             >
               <StatusIndicator status={entry.status!} message={entry.statusMessage} />
@@ -160,10 +267,48 @@ function MessageEntry({
             </div>
           )}
 
-          {/* Task feedback for completed entries */}
+          {/* Approval Card - Shows when task requires approval */}
+          {approvalData?.requiresApproval && approvalData?.taskId && (
+            <div className="my-3">
+              <ApprovalCard
+                data={{
+                  taskId: approvalData.taskId,
+                  title: approvalData.title || entry.text || 'Task Approval',
+                  confidence: approvalData.confidence,
+                  riskLevel: approvalData.riskLevel,
+                  metadata: { commandId: entry.id },
+                }}
+                onApproved={(taskId) => onApproveTask?.(taskId, entry.id, 'approved')}
+                onRejected={(taskId) => onRejectTask?.(taskId, entry.id, 'rejected')}
+                onModify={(taskId) => onModifyTask?.(taskId, entry.id, 'modified')}
+                autoDismiss
+              />
+            </div>
+          )}
+
+          {/* Task feedback for completed entries - inline experience */}
           {isDone && entry.id && (
-            <div className="px-1 pt-1">
-              <TaskFeedbackButtons taskId={entry.id} />
+            <div className="my-3">
+              <TaskFeedbackInline
+                taskId={entry.work_queue_task_id || entry.id}
+                taskSummary={entry.response 
+                  ? entry.response.slice(0, 200) + (entry.response.length > 200 ? '...' : '')
+                  : entry.text || 'Task completed successfully'
+                }
+                metadata={{ 
+                  commandId: entry.id,
+                  workQueueTaskId: entry.work_queue_task_id,
+                }}
+                onSubmitted={(taskId, rating) => {
+                  // Log successful feedback submission for analytics
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('task-feedback-submitted', {
+                      detail: { taskId, rating, entryId: entry.id }
+                    }));
+                  }
+                }}
+                autoDismiss
+              />
             </div>
           )}
 
@@ -217,9 +362,23 @@ function MessageEntry({
   );
 }
 
-// ── Thread container ─────────────────────────────────────────────────
-
-export function ChatThread({ entries, isLoading, onCancel, onRetry, className }: ChatThreadProps) {
+// Thread container
+export function ChatThread({ 
+  entries, 
+  isLoading, 
+  onCancel, 
+  onRetry, 
+  pendingApprovals,
+  onApproveTask,
+  onRejectTask,
+  onModifyTask,
+  // Progress tracking props
+  activeTaskIds = {},
+  onTaskRetry,
+  onTaskEscalate,
+  onViewTaskLogs,
+  className 
+}: ChatThreadProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom on every entry change (new messages + streaming chunks)
@@ -246,6 +405,14 @@ export function ChatThread({ entries, isLoading, onCancel, onRetry, className }:
                   entry={entry}
                   onCancel={onCancel}
                   onRetry={onRetry}
+                  approvalData={entry.work_queue_task_id ? pendingApprovals?.[entry.id] : undefined}
+                  onApproveTask={onApproveTask}
+                  onRejectTask={onRejectTask}
+                  onModifyTask={onModifyTask}
+                  activeTaskId={activeTaskIds?.[entry.id]}
+                  onTaskRetry={onTaskRetry}
+                  onTaskEscalate={onTaskEscalate}
+                  onViewTaskLogs={onViewTaskLogs}
                 />
               ))}
             </AnimatePresence>

@@ -3,6 +3,7 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/app/components/auth-provider';
+import { useApprovalStatus } from '@/hooks/use-approval-status';
 import type {
   OrchestratorThreadEntry,
   CreateCommandRequest,
@@ -45,6 +46,20 @@ export interface UseChatEngineReturn {
   };
   continueClarification: (commandId: string, answers: Record<string, unknown>, intent: Record<string, unknown>, depth: number) => Promise<void>;
   resetClarification: () => void;
+  // NEW: Task approval state tracking
+  pendingApprovals: Record<string, {
+    requiresApproval: boolean;
+    taskId: string | null;
+    title: string;
+    confidence: number;
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
+    status?: 'pending' | 'approved' | 'rejected' | 'modified';
+    updatedAt?: string;
+  }>;
+  updateApprovalStatus: (commandId: string, status: { requiresApproval?: boolean; taskId?: string | null; title?: string; confidence?: number; riskLevel?: 'low' | 'medium' | 'high' | 'critical'; status?: 'pending' | 'approved' | 'rejected' | 'modified' }) => void;
+  // NEW: Completed approvals tracking for dismissal
+  completedApprovals: Record<string, { timestamp: Date; status: string }>;
+  onApprovalCompleted: (commandId: string, taskId: string, status: string) => void;
 }
 
 const MAX_RETRIES = 3;
@@ -75,6 +90,70 @@ export function useChatEngine(optionsOrUserId?: UseChatEngineOptions | string): 
     isLoading: false,
     error: null as string | null,
   });
+
+  // NEW: Track task approval states per command
+  const [pendingApprovals, setPendingApprovals] = useState<Record<string, {
+    requiresApproval: boolean;
+    taskId: string | null;
+    title: string;
+    confidence: number;
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
+    status?: 'pending' | 'approved' | 'rejected' | 'modified';
+    updatedAt?: string;
+  }>>({});
+
+  // NEW: Track completed approvals for dismissal timing
+  const [completedApprovals, setCompletedApprovals] = useState<Record<string, { 
+    timestamp: Date; 
+    status: string;
+    taskId: string;
+  }>>({});
+
+  const updateApprovalStatus = useCallback((commandId: string, status: {
+    requiresApproval?: boolean;
+    taskId?: string | null;
+    title?: string;
+    confidence?: number;
+    riskLevel?: 'low' | 'medium' | 'high' | 'critical';
+    status?: 'pending' | 'approved' | 'rejected' | 'modified';
+  }) => {
+    setPendingApprovals(prev => ({
+      ...prev,
+      [commandId]: {
+        ...prev[commandId],
+        requiresApproval: status.requiresApproval ?? prev[commandId]?.requiresApproval ?? false,
+        taskId: status.taskId ?? prev[commandId]?.taskId ?? null,
+        title: status.title ?? prev[commandId]?.title ?? '',
+        confidence: status.confidence ?? prev[commandId]?.confidence ?? 0,
+        riskLevel: status.riskLevel ?? prev[commandId]?.riskLevel ?? 'medium',
+        status: status.status ?? prev[commandId]?.status ?? 'pending',
+      }
+    }));
+  }, []);
+
+  const onApprovalCompleted = useCallback((commandId: string, taskId: string, status: string) => {
+    // Update the approval status to reflect completion
+    updateApprovalStatus(commandId, { 
+      requiresApproval: false,
+      status: status as 'approved' | 'rejected' | 'modified',
+    });
+
+    // Track completion timestamp for auto-dismiss
+    setCompletedApprovals(prev => ({
+      ...prev,
+      [commandId]: {
+        timestamp: new Date(),
+        status,
+        taskId,
+      }
+    }));
+
+    // Show completion toast
+    toast({
+      title: `Task ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+      description: 'Approval updated successfully.',
+    });
+  }, [updateApprovalStatus, toast]);
 
   // Track active streams for cleanup
   const activeStreams = useRef<Map<string, () => void>>(new Map());
@@ -462,5 +541,11 @@ export function useChatEngine(optionsOrUserId?: UseChatEngineOptions | string): 
     clarificationState,
     continueClarification,
     resetClarification,
+    // NEW: Approval tracking
+    pendingApprovals,
+    updateApprovalStatus,
+    // NEW: Completed approvals tracking
+    completedApprovals,
+    onApprovalCompleted,
   };
 }
