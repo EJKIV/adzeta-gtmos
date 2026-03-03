@@ -10,6 +10,7 @@ import type {
 } from '@/lib/types/orchestration';
 import { OracleBlockRenderer } from '@/components/oracle-blocks/OracleBlockRenderer';
 import { TaskFeedbackButtons } from '@/app/components/adzeta/task-feedback-buttons';
+import { SkeletonMessage } from '@/app/components/skeleton-loader';
 
 interface ChatThreadProps {
   entries: OrchestratorThreadEntry[];
@@ -251,14 +252,8 @@ export function ChatThread({ entries, isLoading, onCancel, onRetry, className }:
           )}
 
           {isLoading && entries.every((e) => !['pending', 'pending_review', 'parsing', 'routing', 'executing'].includes(e.status ?? '')) && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start">
-              <div
-                className="rounded-2xl rounded-bl-md px-4 py-2.5 inline-flex items-center gap-1.5"
-                style={{ backgroundColor: 'var(--color-bg-elevated)' }}
-              >
-                <Loader2 className="h-3 w-3 animate-spin" style={{ color: 'var(--color-text-tertiary)' }} />
-                <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>Processing...</span>
-              </div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <SkeletonMessage />
             </motion.div>
           )}
         </div>

@@ -98,29 +98,41 @@ export function TableRenderer({ block, onRowAction }: { block: TableBlock; onRow
             </tr>
           </thead>
           <tbody>
-            {paged.map((row, ri) => (
-              <tr
-                key={ri}
-                className={`tr-hover border-b last:border-b-0${block.rowAction && onRowAction ? ' cursor-pointer' : ''}`}
-                style={{ borderColor: 'var(--color-border-subtle)' }}
-                onClick={() => {
-                  if (block.rowAction && onRowAction) {
-                    const id = String(row[block.rowAction.idKey] ?? '');
-                    onRowAction(block.rowAction.template.replace('{id}', id));
-                  }
-                }}
-              >
-                {block.columns.map((col) => (
-                  <td
-                    key={col.key}
-                    className="px-4 py-2.5"
-                    style={{ color: 'var(--color-text-primary)' }}
-                  >
-                    {formatCell(row[col.key], col.format)}
-                  </td>
-                ))}
+            {paged.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={block.columns.length}
+                  className="px-4 py-10 text-center text-sm"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  No data to display
+                </td>
               </tr>
-            ))}
+            ) : (
+              paged.map((row, ri) => (
+                <tr
+                  key={ri}
+                  className={`tr-hover border-b last:border-b-0${block.rowAction && onRowAction ? ' cursor-pointer' : ''}`}
+                  style={{ borderColor: 'var(--color-border-subtle)' }}
+                  onClick={() => {
+                    if (block.rowAction && onRowAction) {
+                      const id = String(row[block.rowAction.idKey] ?? '');
+                      onRowAction(block.rowAction.template.replace('{id}', id));
+                    }
+                  }}
+                >
+                  {block.columns.map((col) => (
+                    <td
+                      key={col.key}
+                      className="px-4 py-2.5"
+                      style={{ color: 'var(--color-text-primary)' }}
+                    >
+                      {formatCell(row[col.key], col.format)}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

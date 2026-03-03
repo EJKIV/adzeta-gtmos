@@ -80,6 +80,8 @@ export function useWorkQueue(state?: ApprovalState): WorkQueueResult {
         body: JSON.stringify({ action, notes, modifications }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const labels = { approve: 'Task approved', reject: 'Task rejected', modify: 'Task modified' };
+      toast({ title: labels[action] });
       await fetchData();
     } catch (err) {
       toast({ title: 'Action failed', description: (err as Error).message, variant: 'destructive' });
@@ -159,6 +161,7 @@ export function useAutonomyGates(): GatesResult {
         body: JSON.stringify({ action, reason }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast({ title: action === 'unlock' ? 'Gate unlocked' : 'Gate locked' });
       await fetchData();
     } catch (err) {
       toast({ title: 'Gate toggle failed', description: (err as Error).message, variant: 'destructive' });
@@ -217,6 +220,7 @@ export function useProactiveSuggestions(): SuggestionsResult {
         body: JSON.stringify({ action: 'accept' }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast({ title: 'Suggestion accepted' });
       await fetchData();
     } catch (err) {
       toast({ title: 'Accept failed', description: (err as Error).message, variant: 'destructive' });
@@ -233,6 +237,7 @@ export function useProactiveSuggestions(): SuggestionsResult {
         body: JSON.stringify({ action: 'dismiss', reason }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast({ title: 'Suggestion dismissed' });
       await fetchData();
     } catch (err) {
       toast({ title: 'Dismiss failed', description: (err as Error).message, variant: 'destructive' });

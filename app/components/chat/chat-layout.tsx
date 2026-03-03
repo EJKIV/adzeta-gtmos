@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { SystemHealthBadge } from './system-health-badge';
+import { CommandPalette } from '@/app/components/command-palette';
 
 const SIDEBAR_KEY = 'gtm-sidebar-collapsed';
 
@@ -14,9 +15,11 @@ interface ChatLayoutProps {
   emptyState?: ReactNode;
   hasMessages: boolean;
   transitioning?: boolean;
+  onCommand?: (command: string) => void;
+  onClearChat?: () => void;
 }
 
-export function ChatLayout({ systemHealthy, thread, input, sidebar, emptyState, hasMessages, transitioning }: ChatLayoutProps) {
+export function ChatLayout({ systemHealthy, thread, input, sidebar, emptyState, hasMessages, transitioning, onCommand, onClearChat }: ChatLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -73,6 +76,8 @@ export function ChatLayout({ systemHealthy, thread, input, sidebar, emptyState, 
             borderColor: 'var(--color-border)',
           }}
         >
+          <CommandPalette onCommand={onCommand} onClearChat={onClearChat} />
+          <div className="flex-1" />
           <SystemHealthBadge healthy={systemHealthy} />
           <button
             onClick={toggleSidebar}

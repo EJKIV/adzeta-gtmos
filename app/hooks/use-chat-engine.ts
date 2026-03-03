@@ -32,6 +32,19 @@ export interface UseChatEngineReturn {
   statusMessage: string;
   feedbackMap: Record<string, unknown>;
   handleFeedback: (commandId: string, rating: number) => void;
+  // NEW: Clarification flow
+  clarificationState: {
+    isActive: boolean;
+    commandId: string | null;
+    intent: Record<string, unknown>;
+    depth: number;
+    confidence: number;
+    ready: boolean;
+    isLoading: boolean;
+    error: string | null;
+  };
+  continueClarification: (commandId: string, answers: Record<string, unknown>, intent: Record<string, unknown>, depth: number) => Promise<void>;
+  resetClarification: () => void;
 }
 
 const MAX_RETRIES = 3;
@@ -49,6 +62,19 @@ export function useChatEngine(optionsOrUserId?: UseChatEngineOptions | string): 
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<OrchestratorError | null>(null);
   const [history, setHistory] = useState<string[]>([]);
+  const [feedbackMap, setFeedbackMap] = useState<Record<string, number>>({});
+
+  // NEW: Clarification state (inline, not paused)
+  const [clarificationState, setClarificationState] = useState({
+    isActive: false,
+    commandId: null as string | null,
+    intent: {} as Record<string, unknown>,
+    depth: 0,
+    confidence: 0,
+    ready: false,
+    isLoading: false,
+    error: null as string | null,
+  });
 
   // Track active streams for cleanup
   const activeStreams = useRef<Map<string, () => void>>(new Map());
@@ -65,6 +91,105 @@ export function useChatEngine(optionsOrUserId?: UseChatEngineOptions | string): 
         entry.id === id ? { ...entry, ...updates } : entry
       )
     );
+  }, []);
+
+  /**
+   * NEW: Handle clarification flow (inline, no pause)
+   */
+  const continueClarification = useCallback(async (
+    commandId: string,
+    answers: Record<string, unknown>,
+    currentIntent: Record<string, unknown>,
+    currentDepth: number
+  ) => {
+    setClarificationState(prev => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      // Merge answers into current intent
+      const updatedIntent = { ...currentIntent };
+      for (const [key, value] of Object.entries(answers)) {
+        const parts = key.split('.');
+        let target: Record<string, unknown> = updatedIntent;
+        
+        for (let i = 0; i < parts.length - 1; i++) {
+          const part = parts[i];
+          if (!target[part] || typeof target[part] !== 'object') {
+            target[part] = {};
+          }
+          target = target[part] as Record<string, unknown>;
+        }
+        
+        target[parts[parts.length - 1]] = value;
+      }
+
+      const res = await fetch('/api/oracle/clarify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          command_id: commandId,
+          intent: updatedIntent,
+          answers,
+          depth: currentDepth,
+          mode: 'follow_up',
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      
+      // Update thread entry with latest blocks
+      updateThreadEntry(commandId, {
+        response: {
+          ...data,
+          status: data.ready ? 'success' : 'needs_more_info',
+          blocks: [], // Will be populated by SSE
+        },
+        status: data.ready ? 'completed' : 'needs_more_info',
+      });
+
+      setClarificationState({
+        isActive: !data.ready,
+        commandId,
+        intent: data.intent,
+        depth: data.depth,
+        confidence: data.confidence,
+        ready: data.ready,
+        isLoading: false,
+        error: null,
+      });
+
+      // If ready, trigger the actual campaign creation
+      if (data.ready && data.next_step) {
+        // Continue with campaign execution
+        toast({
+          title: 'All set!',
+          description: `Proceeding to ${data.next_step.description}`,
+        });
+      }
+
+    } catch (err) {
+      setClarificationState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: err instanceof Error ? err.message : 'Unknown error',
+      }));
+    }
+  }, [updateThreadEntry, toast]);
+
+  const resetClarification = useCallback(() => {
+    setClarificationState({
+      isActive: false,
+      commandId: null,
+      intent: {},
+      depth: 0,
+      confidence: 0,
+      ready: false,
+      isLoading: false,
+      error: null,
+    });
   }, []);
 
   /**
@@ -286,6 +411,36 @@ export function useChatEngine(optionsOrUserId?: UseChatEngineOptions | string): 
     setError(null);
   }, []);
 
+  const handleFeedback = useCallback(async (commandId: string, rating: number) => {
+    const environment = process.env.NEXT_PUBLIC_ENVIRONMENT === 'prod' ? 'prod' : 'dev';
+    try {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch('/api/oracle/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({
+          command_id: commandId,
+          rating,
+          mark_for_rlhf: rating <= 2 || rating >= 4,
+          environment,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setFeedbackMap(prev => ({ ...prev, [commandId]: rating }));
+      toast({ title: rating >= 4 ? 'Thanks for the feedback!' : 'Feedback recorded' });
+    } catch {
+      toast({ title: 'Failed to submit feedback', variant: 'destructive' });
+    }
+  }, [getAuthHeaders, toast]);
+
+  // Derive status message from the most recent active entry
+  const activeEntry = [...thread].reverse().find(e =>
+    ['pending', 'parsing', 'routing', 'executing'].includes(e.status ?? '')
+  );
+  const statusMessage = activeEntry?.statusMessage ?? (
+    activeEntry ? 'Processing your request...' : ''
+  );
+
   return {
     thread,
     isProcessing,
@@ -297,12 +452,15 @@ export function useChatEngine(optionsOrUserId?: UseChatEngineOptions | string): 
     history,
     addToHistory,
     updateThreadEntry,
-    // Compat shims
     transitioning: isProcessing,
     sessionError: error?.message ?? null,
     isLoadingSession: false,
-    statusMessage: '',
-    feedbackMap: {},
-    handleFeedback: () => {},
+    statusMessage,
+    feedbackMap,
+    handleFeedback,
+    // NEW: Clarification flow
+    clarificationState,
+    continueClarification,
+    resetClarification,
   };
 }

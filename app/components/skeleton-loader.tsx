@@ -97,6 +97,58 @@ export function SkeletonText({ lines = 3, className }: { lines?: number; classNa
   );
 }
 
+export function SkeletonTable({ rows = 4, cols = 4, className }: { rows?: number; cols?: number; className?: string }) {
+  return (
+    <div className={cn('rounded-xl border overflow-hidden', className)} style={{ borderColor: 'var(--color-border)' }}>
+      <div className="border-b" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)' }}>
+        <div className="flex gap-4 px-4 py-3">
+          {Array.from({ length: cols }).map((_, i) => (
+            <div key={i} className="h-3 rounded animate-pulse flex-1" style={{ backgroundColor: 'var(--color-bg-tertiary)', maxWidth: i === 0 ? '120px' : '80px' }} />
+          ))}
+        </div>
+      </div>
+      {Array.from({ length: rows }).map((_, ri) => (
+        <div
+          key={ri}
+          className="flex gap-4 px-4 py-3 border-b last:border-b-0"
+          style={{ borderColor: 'var(--color-border-subtle)' }}
+        >
+          {Array.from({ length: cols }).map((_, ci) => (
+            <div
+              key={ci}
+              className="h-4 rounded animate-pulse flex-1"
+              style={{
+                backgroundColor: 'var(--color-bg-tertiary)',
+                maxWidth: ci === 0 ? '140px' : '100px',
+                animationDelay: `${(ri * cols + ci) * 50}ms`,
+              }}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonMessage({ className }: { className?: string }) {
+  return (
+    <div className={cn('space-y-3', className)}>
+      {/* User message (right) */}
+      <div className="flex justify-end">
+        <div className="h-10 w-48 rounded-2xl rounded-br-md animate-pulse" style={{ backgroundColor: 'var(--color-bg-tertiary)' }} />
+      </div>
+      {/* Bot response (left) */}
+      <div className="flex justify-start">
+        <div className="space-y-2 max-w-[70%]">
+          <div className="h-4 w-64 rounded animate-pulse" style={{ backgroundColor: 'var(--color-bg-tertiary)' }} />
+          <div className="h-4 w-48 rounded animate-pulse" style={{ backgroundColor: 'var(--color-bg-tertiary)', animationDelay: '100ms' }} />
+          <div className="h-4 w-32 rounded animate-pulse" style={{ backgroundColor: 'var(--color-bg-tertiary)', animationDelay: '200ms' }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SkeletonHealthScore({ className }: { className?: string }) {
   return (
     <div className={cn('p-6 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 animate-pulse', className)}>

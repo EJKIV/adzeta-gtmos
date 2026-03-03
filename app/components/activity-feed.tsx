@@ -138,9 +138,15 @@ export function ActivityFeed({ onAction, compact }: ActivityFeedProps) {
 
       <div className={`${px} ${compact ? '' : 'pb-3'} space-y-0`}>
         {activities.length === 0 && (
-          <p className="py-4 text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
-            No recent activity
-          </p>
+          <div className="py-8 flex flex-col items-center gap-1.5">
+            <Bell className="h-5 w-5 mb-1" style={{ color: 'var(--color-text-muted)' }} />
+            <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+              No recent activity
+            </p>
+            <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+              Activity from commands, agents, and alerts will appear here.
+            </p>
+          </div>
         )}
         {visible.map((item) => (
           <div

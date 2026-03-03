@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Lightbulb } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useProactiveSuggestions } from '@/app/hooks/use-adzeta';
@@ -52,9 +53,13 @@ export function ProactiveSuggestionsPanel() {
       </CardHeader>
       <CardContent className="space-y-3">
         {suggestions.length === 0 ? (
-          <p className="text-center py-6 text-sm text-muted-foreground">
-            No active suggestions
-          </p>
+          <div className="text-center py-10 text-muted-foreground flex flex-col items-center gap-2">
+            <Lightbulb className="h-7 w-7 mb-1" style={{ color: 'var(--color-text-muted)' }} />
+            <p className="text-sm font-medium text-foreground">No suggestions yet</p>
+            <p className="text-xs max-w-[220px]">
+              Proactive insights from anomalies, trends, and opportunities will surface here.
+            </p>
+          </div>
         ) : (
           suggestions.map((s) => (
             <Card key={s.suggestion_id} className="border">

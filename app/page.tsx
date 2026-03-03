@@ -30,6 +30,8 @@ function DashboardContent() {
       hasMessages={hasMessages}
       transitioning={engine.transitioning}
       systemHealthy={!engine.sessionError}
+      onCommand={engine.handleCommand}
+      onClearChat={engine.clearThread}
       thread={
         <ChatThread
           entries={engine.thread}

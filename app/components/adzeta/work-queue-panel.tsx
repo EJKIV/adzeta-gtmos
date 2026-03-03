@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { CheckCircle2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useWorkQueue } from '@/app/hooks/use-adzeta';
@@ -181,9 +182,12 @@ export function WorkQueuePanel() {
       </CardHeader>
       <CardContent className="space-y-3">
         {tasks.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <p className="text-lg font-medium">All clear</p>
-            <p className="text-sm">No tasks pending review</p>
+          <div className="text-center py-10 text-muted-foreground flex flex-col items-center gap-2">
+            <CheckCircle2 className="h-8 w-8 text-emerald-500 mb-1" />
+            <p className="text-base font-medium text-foreground">All clear</p>
+            <p className="text-sm max-w-[240px]">
+              No outbound actions awaiting approval. Tasks that send content externally will appear here for review.
+            </p>
           </div>
         ) : (
           tasks.map(task => (

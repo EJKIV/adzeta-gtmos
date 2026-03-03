@@ -3,10 +3,10 @@
 import type { ReactNode } from 'react';
 
 const STARTER_COMMANDS = [
-  { label: 'Show pipeline health', command: 'show pipeline health' },
-  { label: 'Find CMOs at fintech', command: 'find CMOs at fintech companies' },
-  { label: 'What should I focus on?', command: 'what should I focus on?' },
-  { label: 'Show all skills', command: 'help' },
+  { label: 'Show pipeline health', command: 'show pipeline health', hint: 'Analytics' },
+  { label: 'Find CMOs at fintech', command: 'find CMOs at fintech companies', hint: 'Research' },
+  { label: 'What should I focus on?', command: 'what should I focus on?', hint: 'Strategy' },
+  { label: 'Draft outreach sequence', command: 'draft an outreach sequence', hint: 'Action' },
 ];
 
 interface EmptyStateProps {
@@ -47,8 +47,14 @@ export function EmptyState({ onCommand, children }: EmptyStateProps) {
           <button
             key={s.command}
             onClick={() => onCommand(s.command)}
-            className="pill-btn px-4 py-2 text-sm font-medium rounded-full border hover:scale-[1.02]"
+            className="pill-btn px-4 py-2 text-sm font-medium rounded-full border hover:scale-[1.02] transition-transform flex items-center gap-2"
           >
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}
+            >
+              {s.hint}
+            </span>
             {s.label}
           </button>
         ))}
