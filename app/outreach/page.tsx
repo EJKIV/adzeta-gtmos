@@ -15,11 +15,9 @@ import {
   Target,
 } from 'lucide-react';
 
-import {
-  ResearchCards,
-  ProspectStream,
-  Suggestions,
-} from '@/components';
+import ResearchCards from '@/components/research-cards';
+import ProspectStream from '@/components/prospect-stream';
+import Suggestions from '@/components/suggestions';
 
 import { useOutreach } from './layout';
 

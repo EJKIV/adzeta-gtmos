@@ -13,7 +13,7 @@ import {
   Search,
   Download,
 } from 'lucide-react';
-import { ProspectStream } from '@/components';
+import ProspectStream from '@/components/prospect-stream';
 import { useOutreach } from '../layout';
 import type { Prospect } from '@/types';
 

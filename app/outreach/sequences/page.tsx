@@ -7,7 +7,7 @@
 
 import { motion } from 'framer-motion';
 import { GitBranch, Plus } from 'lucide-react';
-import { SequenceVisualizer } from '@/components';
+import SequenceVisualizer from '@/components/sequence-visualizer';
 import type { Sequence } from '@/types';
 
 const sequences: Sequence[] = [
