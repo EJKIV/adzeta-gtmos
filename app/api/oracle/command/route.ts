@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSupabaseClient, getEnvironmentFromBody } from '@/lib/supabase/environment';
 import { authenticate } from '@/lib/api-auth';
+import { classifyQuery, shouldRequireApproval, getSuggestedAction } from '@/lib/query-classifier';
 
-// Validation schema
+// Validation schema - task_type is now automatically determined, not user-selected
 const commandSchema = z.object({
   raw_command: z.string().min(1, 'Command is required'),
   environment: z.enum(['dev', 'prod']).default('dev'),
@@ -43,10 +44,36 @@ export async function POST(request: NextRequest) {
 
     const userId = auth.userId!;
 
+    // ================================
+    // AUTO-CLASSIFY THE QUERY
+    // ================================
+    const classification = classifyQuery(raw_command);
+    console.log('[oracle/command] Query classified:', {
+      task_type: classification.task_type,
+      risk_level: classification.risk_level,
+      confidence: classification.confidence,
+    });
+
+    // Check autonomy gate for this task type
+    const { data: gate, error: gateError } = await supabase
+      .from('adzeta_autonomy_gates')
+      .select('*')
+      .eq('task_type', classification.task_type)
+      .single();
+
+    if (gateError) {
+      console.warn('[oracle/command] Could not fetch gate:', gateError.message);
+    }
+
+    // Determine if approval is required
+    const requiresApproval = shouldRequireApproval(classification, gate);
+
     // Generate session key
     const sessionKey = `agent:adzeta-gtm:${crypto.randomUUID()}`;
 
+    // ================================
     // Insert into command_history
+    // ================================
     const { data: command, error: insertError } = await supabase
       .from('command_history')
       .insert({
@@ -54,11 +81,16 @@ export async function POST(request: NextRequest) {
         session_key: sessionKey,
         raw_command,
         source: 'webchat',
-        status: 'pending',
+        status: requiresApproval ? 'pending_review' : 'pending',
         environment: env,
+        task_type: classification.task_type,
+        risk_level: classification.risk_level,
+        confidence_score: classification.confidence,
         routing_decision_data: {
           ...context,
           environment: env,
+          classification,
+          requires_approval: requiresApproval,
         },
       })
       .select()
@@ -72,7 +104,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert into oracle_commands (polling table for the standalone runner)
+    // ================================
+    // Create work queue entry if approval required
+    // ================================
+    let workQueueTask = null;
+    if (requiresApproval) {
+      let approvalState = 'pending_review';
+
+      // Check if gate allows auto-execution
+      if (
+        gate &&
+        (gate.current_status === 'unlocked' || gate.manually_unlocked) &&
+        !gate.manually_locked &&
+        classification.confidence >= (gate.min_confidence ?? 0.7)
+      ) {
+        approvalState = 'auto_executed';
+      }
+
+      const { data: task, error: taskError } = await supabase
+        .from('adzeta_work_queue')
+        .insert({
+          task_type: classification.task_type,
+          title: classification.suggested_title,
+          description: `Automatically classified task: ${classification.reasoning}`,
+          raw_request: raw_command,
+          confidence_score: classification.confidence,
+          risk_level: classification.risk_level,
+          approval_state: approvalState,
+          suggested_action: getSuggestedAction(classification),
+          suggested_action_payload: {
+            command_id: command.id,
+            classification,
+          },
+          rationale: classification.reasoning,
+          risk_assessment: { level: classification.risk_level, indicators: [] },
+          oracle_command_id: command.id,
+          priority: classification.risk_level === 'critical' ? 10 : classification.risk_level === 'high' ? 7 : 5,
+          user_id: userId,
+        })
+        .select()
+        .single();
+
+      if (taskError) {
+        console.error('[oracle/command] Work queue insert failed:', taskError);
+      } else {
+        workQueueTask = task;
+        console.log('[oracle/command] Created work queue task:', task.task_id);
+      }
+    }
+
+    // ================================
+    // Insert into oracle_commands (polling table)
+    // ================================
     const { error: oracleInsertError } = await supabase
       .from('oracle_commands')
       .insert({
@@ -80,15 +163,18 @@ export async function POST(request: NextRequest) {
         raw_input: raw_command,
         environment: env,
         user_id: userId,
-        status: 'pending',
+        status: requiresApproval ? 'pending' : 'ready',
+        task_type: classification.task_type,
+        confidence_score: classification.confidence,
       });
 
     if (oracleInsertError) {
       console.error('[oracle/command] oracle_commands insert failed:', oracleInsertError);
-      // Non-fatal — command_history row still exists
     }
 
-    // Notify orchestrator via webhook (fire-and-forget, handles notification storage)
+    // ================================
+    // Notify orchestrator via webhook
+    // ================================
     try {
       await fetch(`${request.nextUrl.origin}/api/oracle/webhook`, {
         method: 'POST',
@@ -97,7 +183,10 @@ export async function POST(request: NextRequest) {
           command_id: command.id,
           event_type: 'command_created',
           environment: env,
-          source: 'command_route'
+          source: 'command_route',
+          task_type: classification.task_type,
+          requires_approval: requiresApproval,
+          work_queue_task_id: workQueueTask?.task_id,
         }),
         signal: AbortSignal.timeout(5000)
       });
@@ -107,7 +196,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       command_id: command.id,
-      status: 'pending',
+      status: requiresApproval ? 'pending_review' : 'processing',
+      classification: {
+        task_type: classification.task_type,
+        risk_level: classification.risk_level,
+        confidence: classification.confidence,
+        reasoning: classification.reasoning,
+      },
+      requires_approval: requiresApproval,
+      work_queue_task_id: workQueueTask?.task_id ?? null,
     }, { status: 201 });
 
   } catch (err) {
