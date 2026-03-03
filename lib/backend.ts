@@ -11,10 +11,10 @@ export async function fetchJson<T>(path: string): Promise<T> {
   const cleanPath = path.replace(/^\/api/, '');
   
   // Build URL - no double /api
-  const url = USE_NEXT_API 
+  const url = USE_NEXT_API
     ? `/api${cleanPath}`
-    : `${BACKEND_URL}${cleanPath}`;
-  
+    : `${BACKEND_URL}/api${cleanPath}`;
+
   try {
     const response = await fetch(url, {
       headers: {
@@ -41,8 +41,8 @@ export async function postJson<T>(path: string, data: unknown): Promise<T> {
   const cleanPath = path.replace(/^\/api/, '');
   const url = USE_NEXT_API
     ? `/api${cleanPath}`
-    : `${BACKEND_URL}${cleanPath}`;
-  
+    : `${BACKEND_URL}/api${cleanPath}`;
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {

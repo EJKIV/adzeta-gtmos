@@ -17,6 +17,8 @@ import {
   Megaphone,
   GitBranch,
   ChevronDown,
+  Shield,
+  ListTodo,
 } from 'lucide-react';
 import { SidebarSessionList } from './sidebar-session-list';
 import { usePendingCount } from '@/app/hooks/use-pending-count';
@@ -54,10 +56,20 @@ export default function NavSidebar({ children }: NavSidebarProps) {
       icon: <LayoutDashboard className="w-5 h-5" />,
     },
     {
+      href: '/work-queue',
+      label: 'Work Queue',
+      icon: <ListTodo className="w-5 h-5" />,
+      badge: pendingCount > 0 ? pendingCount : undefined,
+    },
+    {
+      href: '/autonomy',
+      label: 'Autonomy',
+      icon: <Shield className="w-5 h-5" />,
+    },
+    {
       href: '/ops',
       label: 'Operations',
       icon: <ClipboardList className="w-5 h-5" />,
-      badge: pendingCount > 0 ? pendingCount : undefined,
     },
     {
       href: '/settings',

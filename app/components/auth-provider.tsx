@@ -10,6 +10,7 @@ interface AuthContextType {
   isEmployee: boolean;
   isDemoMode: boolean;
   error: string | null;
+  getAccessToken: () => Promise<string | null>;
   signInWithEmail: (email: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   clearError: () => void;
@@ -127,6 +128,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetchProfile();
   }, [supabase, user]);
 
+  const getAccessToken = async (): Promise<string | null> => {
+    if (!supabase) return null;
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? null;
+  };
+
   const signInWithEmail = async (email: string) => {
     if (!supabase) {
       return { error: new Error('Supabase not configured') };
@@ -160,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isDemoMode = !supabase;
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isEmployee, isDemoMode, error, signInWithEmail, signOut, clearError }}>
+    <AuthContext.Provider value={{ user, isLoading, isEmployee, isDemoMode, error, getAccessToken, signInWithEmail, signOut, clearError }}>
       {children}
     </AuthContext.Provider>
   );

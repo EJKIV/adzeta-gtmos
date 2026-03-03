@@ -1,394 +1,307 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { useSessionContext } from '@/app/components/session-provider';
-import { useFeedback } from './use-feedback';
-import { useSSEStream } from './use-sse-stream';
-import type { ThreadEntry, SkillOutput, ResultContext, FollowUp } from '@/lib/skills/types';
+import { useCallback, useState, useEffect, useRef } from 'react';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/app/components/auth-provider';
+import type {
+  OrchestratorThreadEntry,
+  CreateCommandRequest,
+  OrchestratorError,
+} from '@/lib/types/orchestration';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function extractResultContext(output: SkillOutput): ResultContext | undefined {
-  for (const block of output.blocks) {
-    if (block.type === 'table' && block.rows.length > 0) {
-      const ids = block.rows.map((r) => r.id as string).filter(Boolean);
-      if (ids.length) {
-        return { prospectIds: ids, sourceSkillId: output.skillId, resultCount: ids.length };
-      }
-    }
-  }
-  return undefined;
+export interface UseChatEngineOptions {
+  maxHistory: number;
+  onError?: (error: OrchestratorError) => void;
 }
 
-/** Derive a readable session title from skill output instead of raw text. */
-function deriveSessionTitle(text: string, output?: SkillOutput): string {
-  if (output && output.status !== 'error' && output.skillId !== 'unknown') {
-    const domainLabel: Record<string, string> = {
-      'research.prospect_search': 'Prospect Search',
-      'analytics.pipeline_summary': 'Pipeline Summary',
-      'analytics.kpi_detail': 'KPI Detail',
-      'intelligence.recommendations': 'Recommendations',
-      'workflow.campaign_create': 'Campaign',
-      'workflow.export': 'Export',
-      'system.help': 'Help',
-    };
-    const label = domainLabel[output.skillId];
-    if (label) {
-      const short = text.length > 40 ? text.slice(0, 37) + '...' : text;
-      return `${label} — ${short}`.slice(0, 60);
-    }
-  }
-  return text.slice(0, 60);
-}
-
-function classifyError(err: unknown): { message: string; suggestion?: string } {
-  if (err instanceof TypeError && err.message === 'Failed to fetch') {
-    return {
-      message: 'Network error — unable to reach the server.',
-      suggestion: 'Check your internet connection and try again.',
-    };
-  }
-  if (err instanceof Error && err.message === 'No response body') {
-    return {
-      message: 'The server returned an empty response.',
-      suggestion: 'The server may be restarting. Try again in a moment.',
-    };
-  }
-  if (err instanceof Response || (err instanceof Error && /40[13]/.test(err.message))) {
-    return {
-      message: 'Authentication failed — your session may have expired.',
-      suggestion: 'Try refreshing the page to re-authenticate.',
-    };
-  }
-  if (err instanceof Error && /timeout|timed out/i.test(err.message)) {
-    return {
-      message: 'Request timed out — the server took too long to respond.',
-      suggestion: 'Try a simpler query or try again later.',
-    };
-  }
-  if (err instanceof Error && /429|rate.?limit/i.test(err.message)) {
-    return {
-      message: 'Rate limited — too many requests.',
-      suggestion: 'Wait a moment before trying again.',
-    };
-  }
-  return { message: 'Something went wrong. Please try again.' };
-}
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const COMMAND_COOLDOWN_MS = 500;
-
-// ---------------------------------------------------------------------------
-// Public interface
-// ---------------------------------------------------------------------------
-
-export interface ChatEngine {
-  thread: ThreadEntry[];
+export interface UseChatEngineReturn {
+  thread: OrchestratorThreadEntry[];
   isProcessing: boolean;
-  isLoadingSession: boolean;
+  error: OrchestratorError | null;
+  handleCommand: (text: string) => Promise<void>;
+  cancelCommand: (commandId: string) => Promise<boolean>;
+  retryCommand: (commandId: string) => void;
+  clearThread: () => void;
+  history: string[];
+  addToHistory: (text: string) => void;
+  updateThreadEntry: (id: string, updates: Partial<OrchestratorThreadEntry>) => void;
+  // Compat shims for page.tsx
   transitioning: boolean;
-  statusMessage: string | null;
-  lastFollowUps: FollowUp[];
-  feedbackMap: Map<string, 'positive' | 'negative'>;
-  sessionError: boolean;
-  handleCommand: (text: string) => void;
-  handleFeedback: (messageId: string, rating: 'positive' | 'negative', comment?: string) => void;
+  sessionError: string | null;
+  isLoadingSession: boolean;
+  statusMessage: string;
+  feedbackMap: Record<string, unknown>;
+  handleFeedback: (commandId: string, rating: number) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 2000;
 
-export function useChatEngine(userId?: string): ChatEngine {
-  // --- Thread state ---
-  const [thread, setThread] = useState<ThreadEntry[]>([]);
+export function useChatEngine(optionsOrUserId?: UseChatEngineOptions | string): UseChatEngineReturn {
+  const options: UseChatEngineOptions = typeof optionsOrUserId === 'object' && optionsOrUserId !== null
+    ? optionsOrUserId
+    : { maxHistory: 50 };
+  const { maxHistory } = options;
+  const { getAccessToken } = useAuth();
+  const { toast } = useToast();
+
+  const [thread, setThread] = useState<OrchestratorThreadEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isLoadingSession, setIsLoadingSession] = useState(false);
-  const [lastFollowUps, setLastFollowUps] = useState<FollowUp[]>([]);
-  const [transitioning, setTransitioning] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [sessionError, setSessionError] = useState(false);
+  const [error, setError] = useState<OrchestratorError | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
 
-  // --- Refs (avoid re-render cascades) ---
-  const lastResultContextRef = useRef<ResultContext | undefined>(undefined);
-  const threadLengthRef = useRef(0);
-  const lastCommandTimeRef = useRef(0);
-  const prevSessionIdRef = useRef<string | null>(null);
-  const creatingSessionRef = useRef(false);
-  // Keep length ref in sync
-  useEffect(() => {
-    threadLengthRef.current = thread.length;
-  }, [thread]);
+  // Track active streams for cleanup
+  const activeStreams = useRef<Map<string, () => void>>(new Map());
 
-  // --- Sessions (from context) ---
-  const {
-    activeSessionId,
-    createSession,
-    loadMessages,
-    saveMessage,
-    updateTitle,
-    clearSession,
-    sessionErrors,
-  } = useSessionContext();
+  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    const token = await getAccessToken();
+    if (token) return { Authorization: `Bearer ${token}` };
+    return {};
+  }, [getAccessToken]);
 
-  // --- Feedback ---
-  const feedback = useFeedback(activeSessionId);
-
-  // Keep feedback thread ref in sync
-  useEffect(() => {
-    feedback.syncThread(thread);
-  }, [thread, feedback.syncThread]);
-
-  // --- SSE stream ---
-  const handleSSEReconnecting = useCallback((attempt: number) => {
-    setStatusMessage(`Reconnecting... (attempt ${attempt})`);
+  const updateThreadEntry = useCallback((id: string, updates: Partial<OrchestratorThreadEntry>) => {
+    setThread(prev =>
+      prev.map(entry =>
+        entry.id === id ? { ...entry, ...updates } : entry
+      )
+    );
   }, []);
 
-  const { stream, abort } = useSSEStream({
-    onReconnecting: handleSSEReconnecting,
-    maxRetries: 3,
-  });
+  /**
+   * Open an SSE stream for a command and pipe events into the thread.
+   */
+  const startStream = useCallback((commandId: string) => {
+    const environment = process.env.NEXT_PUBLIC_ENVIRONMENT === 'prod' ? 'prod' : 'dev';
+    let retries = 0;
+    let evtSource: EventSource | null = null;
+    let fullText = '';
+    let cancelled = false;
 
-  // --- Reactive session transitions ---
-  // When activeSessionId changes, clean up old state and load new session
-  useEffect(() => {
-    const prev = prevSessionIdRef.current;
-    prevSessionIdRef.current = activeSessionId;
+    function connect() {
+      if (cancelled) return;
 
-    // Skip the initial mount when both are null
-    if (prev === null && activeSessionId === null) return;
-    // No change
-    if (prev === activeSessionId) return;
+      evtSource = new EventSource(
+        `/api/oracle/stream?commandId=${commandId}&environment=${environment}`
+      );
 
-    // Skip cleanup when a session was just created for the first message
-    if (creatingSessionRef.current) {
-      creatingSessionRef.current = false;
-      return;
-    }
+      evtSource.onmessage = (e) => {
+        let data: { type: string; status?: string; message?: string; text?: string; response?: string; block?: import('@/components/oracle-blocks/types').OracleBlock };
+        try { data = JSON.parse(e.data); } catch { return; }
 
-    // Cleanup from previous session
-    abort();
-    setIsProcessing(false);
-    setStatusMessage(null);
-    lastResultContextRef.current = undefined;
-    feedback.reset();
-    setSessionError(false);
-
-    if (!activeSessionId) {
-      // Cleared session (new chat)
-      setThread([]);
-      setLastFollowUps([]);
-      setIsLoadingSession(false);
-      return;
-    }
-
-    // Load the new session
-    setIsLoadingSession(true);
-    loadMessages(activeSessionId).then((msgs) => {
-      setThread(msgs);
-      setIsLoadingSession(false);
-      const lastResponse = [...msgs].reverse().find((m) => m.type === 'response');
-      setLastFollowUps(lastResponse?.output?.followUps ?? []);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSessionId]);
-
-  // Cmd+N keyboard shortcut
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
-        e.preventDefault();
-        clearSession();
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [clearSession]);
-
-  // --- Command execution ---
-  const handleCommand = useCallback(async (text: string) => {
-    // Rate-limit rapid submissions
-    const now = Date.now();
-    if (now - lastCommandTimeRef.current < COMMAND_COOLDOWN_MS) return;
-    lastCommandTimeRef.current = now;
-
-    const isFirstMessage = threadLengthRef.current === 0;
-    if (isFirstMessage) {
-      setTransitioning(true);
-      setTimeout(() => setTransitioning(false), 400);
-    }
-
-    // Lazy session creation
-    let sessionId = activeSessionId;
-    if (!sessionId) {
-      creatingSessionRef.current = true;
-      sessionId = await createSession(text.slice(0, 60));
-      if (!sessionId) {
-        setSessionError(true);
-      }
-    }
-
-    const commandId = `cmd-${crypto.randomUUID()}`;
-    const responseId = `res-${crypto.randomUUID()}`;
-    // Per-stream accumulator — captured by closure, not shared via ref
-    let openclawText = '';
-
-    const commandEntry: ThreadEntry = { id: commandId, type: 'command', text, timestamp: new Date() };
-
-    setThread((prev) => [...prev, commandEntry]);
-    setIsProcessing(true);
-
-    if (sessionId) saveMessage(sessionId, commandEntry);
-
-    // Per-stream callbacks capture responseId, sessionId, openclawText etc.
-    // in this closure, so rapid commands can't corrupt each other's state.
-    stream('/api/agent/command', {
-      text,
-      resultContext: lastResultContextRef.current,
-      userId,
-    }, {
-      onEvent(evt) {
-        switch (evt.event) {
-          case 'status': {
-            const { message } = JSON.parse(evt.data);
-            setStatusMessage(message);
-            break;
-          }
-
-          case 'skill-result': {
-            const output: SkillOutput = JSON.parse(evt.data);
-            const ctx = extractResultContext(output);
-            if (ctx) lastResultContextRef.current = ctx;
-
-            const responseEntry: ThreadEntry = {
-              id: responseId,
-              type: 'response',
-              output,
-              timestamp: new Date(),
-            };
-
-            setThread((prev) => [...prev, responseEntry]);
-            setLastFollowUps(output.followUps ?? []);
-
-            if (sessionId) saveMessage(sessionId, responseEntry);
-
-            if (isFirstMessage && sessionId) {
-              const smartTitle = deriveSessionTitle(text, output);
-              updateTitle(sessionId, smartTitle);
-            }
-            break;
-          }
-
-          case 'openclaw-delta': {
-            const { content } = JSON.parse(evt.data) as { content: string };
-            openclawText += content;
-            const currentText = openclawText;
-
-            setThread((prev) =>
-              prev.map((entry) => {
-                if (entry.id !== responseId || !entry.output) return entry;
-                const hasTextBlock = entry.output.blocks.some((b) => b.type === 'text');
-                const updatedBlocks = hasTextBlock
-                  ? entry.output.blocks.map((b) =>
-                      b.type === 'text'
-                        ? { ...b, content: currentText, isStreaming: true }
-                        : b
-                    )
-                  : [
-                      ...entry.output.blocks,
-                      { type: 'text' as const, content: currentText, source: 'Zetty', isStreaming: true },
-                    ];
-                return { ...entry, output: { ...entry.output, blocks: updatedBlocks } };
-              })
-            );
-            break;
-          }
-
-          case 'openclaw-error': {
-            const { message, hint } = JSON.parse(evt.data) as { message: string; hint?: string };
-            setThread((prev) =>
-              prev.map((entry) => {
-                if (entry.id !== responseId || !entry.output) return entry;
-                return {
-                  ...entry,
-                  output: {
-                    ...entry.output,
-                    blocks: [
-                      ...entry.output.blocks,
-                      {
-                        type: 'insight' as const,
-                        title: 'Zetty unavailable',
-                        description: hint || message,
-                        severity: 'warning' as const,
-                      },
-                    ],
-                  },
-                };
-              })
-            );
-            break;
-          }
-
-          case 'done': {
-            setThread((prev) =>
-              prev.map((entry) => {
-                if (entry.id !== responseId || !entry.output) return entry;
-                return {
-                  ...entry,
-                  output: {
-                    ...entry.output,
-                    blocks: entry.output.blocks.map((b) =>
-                      b.type === 'text' ? { ...b, isStreaming: false } : b
-                    ),
-                  },
-                };
-              })
-            );
-            break;
-          }
+        if (data.type === 'status') {
+          updateThreadEntry(commandId, {
+            status: (data.status as OrchestratorThreadEntry['status']) ?? 'executing',
+            statusMessage: data.message,
+            isStreaming: true,
+          });
         }
-      },
-      onDone() {
-        setIsProcessing(false);
-        setStatusMessage(null);
-      },
-      onError(err) {
-        const { message, suggestion } = classifyError(err);
-        const errorOutput: SkillOutput = {
-          skillId: 'error',
-          status: 'error',
-          blocks: [{ type: 'error', message, suggestion }],
-          followUps: [{ label: 'Show help', command: 'help' }],
-          executionMs: 0,
-          dataFreshness: 'mock',
-        };
 
-        setThread((prev) => [
-          ...prev,
-          { id: responseId, type: 'response', output: errorOutput, timestamp: new Date() },
-        ]);
-        setLastFollowUps(errorOutput.followUps);
-        setIsProcessing(false);
-        setStatusMessage(null);
-      },
+        if (data.type === 'block') {
+          setThread(prev => prev.map(entry =>
+            entry.id === commandId
+              ? { ...entry, blocks: [...(entry.blocks ?? []), data.block!], isStreaming: true, status: 'executing' }
+              : entry
+          ));
+        }
+
+        if (data.type === 'chunk') {
+          fullText += data.text ?? '';
+          updateThreadEntry(commandId, {
+            response: fullText,
+            isStreaming: true,
+            status: 'executing',
+          });
+        }
+
+        if (data.type === 'done') {
+          updateThreadEntry(commandId, {
+            response: data.response ?? fullText,
+            isStreaming: false,
+            status: 'completed',
+          });
+          setIsProcessing(false);
+          cleanup();
+        }
+
+        if (data.type === 'error') {
+          updateThreadEntry(commandId, {
+            error_message: data.message ?? 'Unknown error',
+            isStreaming: false,
+            status: 'failed',
+          });
+          setIsProcessing(false);
+          toast({ title: 'Command failed', description: data.message, variant: 'destructive' });
+          cleanup();
+        }
+      };
+
+      evtSource.onerror = () => {
+        evtSource?.close();
+        if (cancelled) return;
+
+        if (retries < MAX_RETRIES) {
+          retries++;
+          updateThreadEntry(commandId, {
+            status: 'pending',
+            isStreaming: true,
+            error_message: undefined,
+          });
+          setTimeout(connect, RETRY_DELAY_MS);
+        } else {
+          updateThreadEntry(commandId, {
+            error_message: 'Connection lost after retries',
+            isStreaming: false,
+            status: 'failed',
+          });
+          setIsProcessing(false);
+          cleanup();
+        }
+      };
+    }
+
+    function cleanup() {
+      cancelled = true;
+      evtSource?.close();
+      activeStreams.current.delete(commandId);
+    }
+
+    // Store cleanup handle
+    activeStreams.current.set(commandId, cleanup);
+
+    connect();
+  }, [updateThreadEntry, toast]);
+
+  /**
+   * Retry a failed command by re-opening the SSE stream.
+   */
+  const retryCommand = useCallback((commandId: string) => {
+    // Reset entry state
+    updateThreadEntry(commandId, {
+      status: 'pending',
+      isStreaming: true,
+      error_message: undefined,
+      response: undefined,
     });
-  }, [userId, activeSessionId, createSession, saveMessage, updateTitle, stream]);
+    setIsProcessing(true);
+    startStream(commandId);
+  }, [updateThreadEntry, startStream]);
+
+  /**
+   * Submit a new command.
+   */
+  const handleCommand = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || isProcessing) return;
+
+    setHistory(prev => {
+      const next = [trimmed, ...prev.filter(h => h !== trimmed)];
+      return next.slice(0, maxHistory);
+    });
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const environment = process.env.NEXT_PUBLIC_ENVIRONMENT === 'prod' ? 'prod' : 'dev';
+
+      const requestBody: CreateCommandRequest = {
+        raw_command: trimmed,
+        environment,
+        context: { current_page: window.location.pathname, environment },
+      };
+
+      const authHeaders = await getAuthHeaders();
+      const response = await fetch('/api/oracle/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw { code: 'COMMAND_CREATE_FAILED', message: errorData.error || 'Failed to create command' } as OrchestratorError;
+      }
+
+      const data = await response.json();
+
+      // Add entry to thread
+      const newEntry: OrchestratorThreadEntry = {
+        id: data.command_id,
+        type: 'command',
+        text: trimmed,
+        status: 'pending',
+        isStreaming: true,
+        timestamp: new Date(),
+      };
+
+      setThread(prev => [...prev, newEntry]);
+
+      // Open SSE stream
+      startStream(data.command_id);
+
+    } catch (err) {
+      const oe: OrchestratorError = {
+        code: (err as OrchestratorError).code || 'UNKNOWN_ERROR',
+        message: (err as OrchestratorError).message || 'An unexpected error occurred',
+      };
+      setError(oe);
+      setIsProcessing(false);
+      toast({ title: 'Error', description: oe.message, variant: 'destructive' });
+      if (options.onError) options.onError(oe);
+    }
+  }, [isProcessing, maxHistory, options, toast, startStream, getAuthHeaders]);
+
+  /**
+   * Cancel a running command — close stream + notify backend.
+   */
+  const cancelCommand = useCallback(async (commandId: string): Promise<boolean> => {
+    // Close the SSE stream immediately
+    const cleanup = activeStreams.current.get(commandId);
+    if (cleanup) cleanup();
+
+    updateThreadEntry(commandId, { status: 'cancelled', isStreaming: false });
+    setIsProcessing(false);
+    toast({ title: 'Command cancelled' });
+    return true;
+  }, [toast, updateThreadEntry]);
+
+  // Cleanup all streams on unmount
+  useEffect(() => {
+    return () => {
+      activeStreams.current.forEach(cleanup => cleanup());
+      activeStreams.current.clear();
+    };
+  }, []);
+
+  const addToHistory = useCallback((text: string) => {
+    setHistory(prev => {
+      const next = [text, ...prev.filter(h => h !== text)];
+      return next.slice(0, maxHistory);
+    });
+  }, [maxHistory]);
+
+  const clearThread = useCallback(() => {
+    setThread([]);
+    setError(null);
+  }, []);
 
   return {
     thread,
     isProcessing,
-    isLoadingSession,
-    transitioning,
-    statusMessage,
-    lastFollowUps,
-    feedbackMap: feedback.feedbackMap,
-    sessionError: sessionError || sessionErrors.length > 0,
+    error,
     handleCommand,
-    handleFeedback: feedback.handleFeedback,
+    cancelCommand,
+    retryCommand,
+    clearThread,
+    history,
+    addToHistory,
+    updateThreadEntry,
+    // Compat shims
+    transitioning: isProcessing,
+    sessionError: error?.message ?? null,
+    isLoadingSession: false,
+    statusMessage: '',
+    feedbackMap: {},
+    handleFeedback: () => {},
   };
 }

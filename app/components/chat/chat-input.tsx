@@ -6,14 +6,23 @@ import { skillRegistry } from '@/lib/skills/registry';
 import '@/lib/skills/register-all';
 import { useCommandHistory } from '@/app/hooks/use-command-history';
 
+const TASK_TYPES = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'research', label: 'Research' },
+  { value: 'analytics', label: 'Analytics' },
+  { value: 'recommendation', label: 'Recommend' },
+  { value: 'action', label: 'Action' },
+] as const;
+
 interface ChatInputProps {
-  onCommand: (text: string) => void;
+  onCommand: (text: string, context?: { task_type?: string }) => void;
   isProcessing: boolean;
   borderless?: boolean;
 }
 
 export function ChatInput({ onCommand, isProcessing, borderless }: ChatInputProps) {
   const [input, setInput] = useState('');
+  const [taskType, setTaskType] = useState('auto');
   const [matchPreview, setMatchPreview] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const history = useCommandHistory();
@@ -56,7 +65,8 @@ export function ChatInput({ onCommand, isProcessing, borderless }: ChatInputProp
     const trimmed = input.trim();
     if (!trimmed || isProcessing) return;
     history.push(trimmed);
-    onCommand(trimmed);
+    const context = taskType !== 'auto' ? { task_type: taskType } : undefined;
+    onCommand(trimmed, context);
     setInput('');
     setMatchPreview(null);
     if (textareaRef.current) {
@@ -104,6 +114,19 @@ export function ChatInput({ onCommand, isProcessing, borderless }: ChatInputProp
             borderColor: 'var(--color-border)',
           }}
         >
+          {/* Task type selector */}
+          <select
+            value={taskType}
+            onChange={(e) => setTaskType(e.target.value)}
+            className="flex-shrink-0 text-[11px] bg-transparent border-none outline-none cursor-pointer pb-0.5"
+            style={{ color: 'var(--color-text-tertiary)' }}
+            disabled={isProcessing}
+          >
+            {TASK_TYPES.map(t => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+
           {/* Slash icon */}
           <span className="flex-shrink-0 pb-0.5">
             {isProcessing ? (

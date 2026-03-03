@@ -6,6 +6,7 @@ import { SkipLink } from './components/accessibility';
 import { AuthWrapper } from './components/auth-wrapper';
 import { SessionProvider } from './components/session-provider';
 import NavSidebar from '@/components/nav-sidebar';
+import { SuggestionToastProvider } from '@/app/components/adzeta/suggestion-toast';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -44,6 +45,7 @@ export default function RootLayout({
               
               <SessionProvider>
                 <NavSidebar>{children}</NavSidebar>
+                <SuggestionToastProvider />
               </SessionProvider>
             </AnnouncementProvider>
           </ThemeProvider>

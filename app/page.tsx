@@ -35,6 +35,8 @@ function DashboardContent() {
           entries={engine.thread}
           isProcessing={engine.isProcessing}
           isLoading={engine.isLoadingSession}
+          onCancel={engine.cancelCommand}
+          onRetry={engine.retryCommand}
           onFollowUp={engine.handleCommand}
           statusMessage={engine.statusMessage}
           feedbackMap={engine.feedbackMap}

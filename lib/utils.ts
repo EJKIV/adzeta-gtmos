@@ -30,6 +30,24 @@ export function formatCurrency(num: number | string | undefined): string {
   }).format(n);
 }
 
+export function formatPercent(num: number | string | undefined): string {
+  if (num === undefined || num === null) return '—';
+  const n = typeof num === 'string' ? parseFloat(num) : num;
+  if (!Number.isFinite(n)) return '—';
+  return `${n.toFixed(1)}%`;
+}
+
+export function formatDate(date: string | Date | undefined): string {
+  if (!date) return '—';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 export function getInitials(name: string): string {
   if (!name) return '?';
   return name

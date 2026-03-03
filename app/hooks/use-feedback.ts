@@ -1,63 +1,143 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import type { ThreadEntry } from '@/lib/skills/types';
+import { useCallback } from 'react';
+import { useToast } from '@/components/ui/use-toast';
+import type { FeedbackPayload, FeedbackResponse } from '@/lib/types/orchestration';
 
-type Rating = 'positive' | 'negative';
+export interface UseFeedbackReturn {
+  submitFeedback: (params: {
+    commandId: string;
+    rating: number;
+    feedbackText?: string;
+    proposedBetterResponse?: string;
+    markForRLHF?: boolean;
+  }) => Promise<boolean>;
+}
 
 /**
- * Manages chat message feedback state and API persistence.
- * Extracted from useChatEngine to isolate feedback concerns.
+ * Hook for submitting feedback to the orchestration layer
+ * Supports RLHF (Reinforcement Learning from Human Feedback)
  */
-export function useFeedback(activeSessionId: string | null) {
-  const [feedbackMap, setFeedbackMap] = useState<Map<string, Rating>>(new Map());
-  const threadRef = useRef<ThreadEntry[]>([]);
+export function useFeedback(): UseFeedbackReturn {
+  const { toast } = useToast();
 
-  const reset = useCallback(() => {
-    setFeedbackMap(new Map());
-  }, []);
+  const submitFeedback = useCallback(
+    async ({
+      commandId,
+      rating,
+      feedbackText,
+      proposedBetterResponse,
+      markForRLHF = true,
+    }: {
+      commandId: string;
+      rating: number;
+      feedbackText?: string;
+      proposedBetterResponse?: string;
+      markForRLHF?: boolean;
+    }): Promise<boolean> => {
+      try {
+        // Get environment
+        const environment = process.env.NEXT_PUBLIC_ENVIRONMENT === 'prod' ? 'prod' : 'dev';
 
-  /** Keep thread ref in sync for lookup without re-render dependency */
-  const syncThread = useCallback((thread: ThreadEntry[]) => {
-    threadRef.current = thread;
-  }, []);
+        const payload: FeedbackPayload & { environment?: 'dev' | 'prod' } = {
+          command_id: commandId,
+          rating,
+          feedback_text: feedbackText,
+          proposed_better_response: proposedBetterResponse,
+          mark_for_rlhf: markForRLHF,
+          categories: deriveCategories(rating, feedbackText),
+          environment,
+        };
 
-  const handleFeedback = useCallback((
-    messageId: string,
-    rating: Rating,
-    comment?: string,
-  ) => {
-    setFeedbackMap((prev) => new Map(prev).set(messageId, rating));
+        const response = await fetch('/api/oracle/feedback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
 
-    if (!activeSessionId) return;
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to submit feedback');
+        }
 
-    const currentThread = threadRef.current;
-    const entry = currentThread.find((e) => e.id === messageId);
-    let userQuery: string | undefined;
-    const idx = currentThread.findIndex((e) => e.id === messageId);
-    for (let i = idx - 1; i >= 0; i--) {
-      if (currentThread[i].type === 'command' && currentThread[i].text) {
-        userQuery = currentThread[i].text;
-        break;
+        const result: FeedbackResponse = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Feedback submission failed');
+        }
+
+        toast({
+          title: 'Feedback recorded',
+          description: markForRLHF
+            ? 'Thank you! Your feedback will help improve the system.'
+            : 'Thank you for your feedback!',
+        });
+
+        return true;
+      } catch (err) {
+        console.error('Feedback submission error:', err);
+        
+        toast({
+          title: 'Failed to record feedback',
+          description:
+            err instanceof Error
+              ? err.message
+              : 'An unexpected error occurred',
+          variant: 'destructive',
+        });
+
+        return false;
       }
-    }
+    },
+    [toast]
+  );
 
-    fetch('/api/feedback/message', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: activeSessionId,
-        messageClientId: messageId,
-        rating,
-        comment,
-        userQuery,
-        aiOutput: entry?.output,
-        skillId: entry?.output?.skillId,
-      }),
-    }).catch(() => {
-      // Feedback is best-effort — don't block the user
-    });
-  }, [activeSessionId]);
-
-  return { feedbackMap, handleFeedback, reset, syncThread };
+  return { submitFeedback };
 }
+
+/**
+ * Derive feedback categories from rating and text
+ */
+function deriveCategories(
+  rating: number,
+  feedbackText?: string
+): string[] | undefined {
+  const categories: string[] = [];
+
+  // Rating-based categories
+  if (rating >= 4) {
+    categories.push('accuracy');
+  }
+  if (rating <= 2) {
+    categories.push('needs-improvement');
+  }
+
+  // Text-based categories
+  if (feedbackText) {
+    const text = feedbackText.toLowerCase();
+    if (text.includes('slow') || text.includes('fast')) {
+      categories.push('speed');
+    }
+    if (text.includes('unclear') || text.includes('confusing')) {
+      categories.push('clarity');
+    }
+    if (text.includes('detailed') || text.includes('thorough')) {
+      categories.push('thoroughness');
+    }
+    if (text.includes('tone') || text.includes('friendly') || text.includes('rude')) {
+      categories.push('tone');
+    }
+    if (text.includes('helpful') || text.includes('useful')) {
+      categories.push('helpfulness');
+    }
+  }
+
+  // Remove duplicates and return or undefined if empty
+  const uniqueCategories = [...new Set(categories)];
+  return uniqueCategories.length > 0 ? uniqueCategories : undefined;
+}
+
+// Re-export types for convenience
+export type { FeedbackPayload, FeedbackResponse } from '@/lib/types/orchestration';

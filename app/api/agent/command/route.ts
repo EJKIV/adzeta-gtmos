@@ -6,6 +6,7 @@ import {
   streamChatCompletion,
 } from '@/src/lib/research/openclaw-client';
 import { authenticate } from '@/lib/api-auth';
+import { getServerSupabase } from '@/lib/supabase-server';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -52,6 +53,104 @@ function buildOpenClawMessages(
 }
 
 // ---------------------------------------------------------------------------
+// Database helpers
+// ---------------------------------------------------------------------------
+
+async function storeUserMessage(
+  supabase: ReturnType<typeof getServerSupabase>,
+  sessionId: string,
+  text: string,
+  clientId?: string
+) {
+  if (!supabase) return null;
+  
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert({
+      session_id: sessionId,
+      type: 'user',
+      text,
+      client_id: clientId,
+    })
+    .select()
+    .single();
+    
+  if (error) {
+    console.warn('[command] Failed to store user message:', error.message);
+  }
+  return data;
+}
+
+async function storeAssistantMessage(
+  supabase: ReturnType<typeof getServerSupabase>,
+  sessionId: string,
+  text: string,
+  output: SkillOutput,
+  metadata?: Record<string, unknown>
+) {
+  if (!supabase) return null;
+  
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert({
+      session_id: sessionId,
+      type: 'assistant',
+      text,
+      output,
+      metadata: metadata || {},
+    })
+    .select()
+    .single();
+    
+  if (error) {
+    console.warn('[command] Failed to store assistant message:', error.message);
+  }
+  return data;
+}
+
+async function logCommand(
+  supabase: ReturnType<typeof getServerSupabase>,
+  params: {
+    userId: string;
+    rawCommand: string;
+    sessionId: string;
+    commandType?: string;
+    skillId?: string;
+    status: string;
+    resultType?: string;
+    resultMessage?: string;
+    relatedResources?: Record<string, unknown>;
+    startedAt: string;
+    completedAt: string;
+    durationMs: number;
+  }
+) {
+  if (!supabase) return null;
+  
+  const { error } = await supabase
+    .from('command_history')
+    .insert({
+      user_id: params.userId,
+      raw_command: params.rawCommand,
+      session_id: params.sessionId,
+      command_type: params.commandType,
+      routed_to: params.skillId,
+      handler_name: params.skillId,
+      status: params.status,
+      result_type: params.resultType,
+      result_message: params.resultMessage,
+      related_resources: params.relatedResources || {},
+      started_at: params.startedAt,
+      completed_at: params.completedAt,
+      duration_ms: params.durationMs,
+    });
+    
+  if (error) {
+    console.warn('[command] Failed to log command:', error.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // POST handler — dual mode (SSE streaming or JSON)
 // ---------------------------------------------------------------------------
 
@@ -69,6 +168,10 @@ export async function POST(req: NextRequest) {
   }
 
   const wantsSSE = req.headers.get('accept') === 'text/event-stream';
+  const supabase = getServerSupabase();
+  const userId = auth.userId || (body.userId as string) || 'anonymous';
+  const sessionId = (body.sessionId as string) || crypto.randomUUID();
+  const clientId = body.clientId as string | undefined;
 
   // ── JSON path (backward-compatible) ────────────────────────────────────
   if (!wantsSSE) {
@@ -111,10 +214,15 @@ export async function POST(req: NextRequest) {
 
   const userText = body.text as string;
   const resultContext = body.resultContext as ResultContext | undefined;
-  // Prefer server-verified session userId over client-provided one
-  const userId = auth.userId || (body.userId as string) || undefined;
+  const startedAt = new Date().toISOString();
+  
+  // Store user message immediately
+  await storeUserMessage(supabase, sessionId, userText, clientId);
 
   const encoder = new TextEncoder();
+  let aiResponseBuffer = '';
+  let skillOutput: SkillOutput | null = null;
+  let executionMs = 0;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -128,7 +236,6 @@ export async function POST(req: NextRequest) {
         const skillStart = Date.now();
 
         // 2. Execute skill
-        let skillOutput: SkillOutput;
         if (match) {
           controller.enqueue(
             encoder.encode(
@@ -147,7 +254,8 @@ export async function POST(req: NextRequest) {
           controller.enqueue(encoder.encode(statusFrame('executing', 'Processing...')));
           skillOutput = await executeFromText(userText, skillContext);
         }
-        console.log(`[command] skill executed in ${Date.now() - skillStart}ms, OpenClaw available: ${isOpenClawChatAvailable()}`);
+        executionMs = Date.now() - skillStart;
+        console.log(`[command] skill executed in ${executionMs}ms, OpenClaw available: ${isOpenClawChatAvailable()}`);
         controller.enqueue(encoder.encode(sseFrame('skill-result', skillOutput)));
 
         // 3. Stream OpenClaw chat if available
@@ -155,7 +263,7 @@ export async function POST(req: NextRequest) {
           controller.enqueue(encoder.encode(statusFrame('connecting', 'Connecting to AI agent...')));
           try {
             const messages = buildOpenClawMessages(userText, skillOutput);
-            const sessionUserId = userId || 'anonymous';
+            const sessionUserId = userId;
             console.log(`[command] starting OpenClaw stream for userId=${sessionUserId}`);
             let firstChunk = true;
 
@@ -169,6 +277,8 @@ export async function POST(req: NextRequest) {
                 controller.enqueue(encoder.encode(statusFrame('streaming', 'AI agent is analyzing...')));
                 firstChunk = false;
               }
+              // Collect response for storage
+              aiResponseBuffer += chunk.content;
               controller.enqueue(
                 encoder.encode(sseFrame('openclaw-delta', { content: chunk.content }))
               );
@@ -185,27 +295,80 @@ export async function POST(req: NextRequest) {
                 })
               )
             );
+            aiResponseBuffer += `\n\n[Error: ${message}]`;
           }
+        } else {
+          // No OpenClaw - just return skill result
+          aiResponseBuffer = skillOutput.blocks
+            .map(b => b.type === 'text' ? b.content : '')
+            .filter(Boolean)
+            .join('\n\n');
         }
 
-        // 4. Done
+        // 4. Store assistant message
+        await storeAssistantMessage(supabase, sessionId, aiResponseBuffer, skillOutput, {
+          model: 'kimi-k2.5:cloud',
+          duration_ms: executionMs,
+          source: isOpenClawChatAvailable() ? 'openclaw' : 'local',
+        });
+
+        // 5. Log command history
+        const completedAt = new Date().toISOString();
+        await logCommand(supabase, {
+          userId,
+          rawCommand: userText,
+          sessionId,
+          commandType: match?.skillId || 'unknown',
+          skillId: match?.skillId,
+          status: 'completed',
+          resultType: skillOutput.status === 'error' ? 'failure' : 'success',
+          resultMessage: aiResponseBuffer.slice(0, 500),
+          startedAt,
+          completedAt,
+          durationMs: executionMs,
+        });
+
+        // 6. Done
         controller.enqueue(encoder.encode(sseFrame('done', {})));
       } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Execution failed';
+        console.error('[command] Error:', errorMessage);
+        
+        // Store error message
+        skillOutput = {
+          skillId: 'error',
+          status: 'error',
+          blocks: [
+            {
+              type: 'error',
+              message: errorMessage,
+            },
+          ],
+          followUps: [],
+          executionMs: 0,
+          dataFreshness: 'mock',
+        };
+        
+        await storeAssistantMessage(supabase, sessionId, errorMessage, skillOutput, {
+          error: true,
+        });
+
+        // Log failed command
+        await logCommand(supabase, {
+          userId,
+          rawCommand: userText,
+          sessionId,
+          status: 'failed',
+          resultType: 'failure',
+          resultMessage: errorMessage,
+          startedAt,
+          completedAt: new Date().toISOString(),
+          durationMs: Date.now() - new Date(startedAt).getTime(),
+        });
+
         controller.enqueue(
           encoder.encode(
-            sseFrame('skill-result', {
-              skillId: 'error',
-              status: 'error',
-              blocks: [
-                {
-                  type: 'error',
-                  message: err instanceof Error ? err.message : 'Execution failed',
-                },
-              ],
-              followUps: [],
-              executionMs: 0,
-              dataFreshness: 'mock',
-            })
+            sseFrame('skill-result', skillOutput)
           )
         );
         controller.enqueue(encoder.encode(sseFrame('done', {})));
