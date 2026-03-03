@@ -28,10 +28,11 @@ interface ChatThreadProps {
 // ── Status indicator ─────────────────────────────────────────────────
 
 const STATUS_DEFAULTS: Record<string, { label: string; detail: string }> = {
-  pending:   { label: 'Queued',     detail: 'Waiting for an available agent...' },
-  parsing:   { label: 'Parsing',    detail: 'Understanding your request...' },
-  routing:   { label: 'Routing',    detail: 'Selecting the best agent...' },
-  executing: { label: 'Working',    detail: 'Generating your response...' },
+  pending:        { label: 'Queued',          detail: 'Waiting for an available agent...' },
+  pending_review: { label: 'Review Required', detail: 'Awaiting approval in Work Queue...' },
+  parsing:        { label: 'Parsing',         detail: 'Understanding your request...' },
+  routing:        { label: 'Routing',         detail: 'Selecting the best agent...' },
+  executing:      { label: 'Working',         detail: 'Generating your response...' },
 };
 
 function StatusIndicator({ status, message }: { status: CommandStatus; message?: string }) {
@@ -84,7 +85,7 @@ function MessageEntry({
   onCancel?: (id: string) => void;
   onRetry?: (id: string) => void;
 }) {
-  const isActive = ['pending', 'parsing', 'routing', 'executing'].includes(entry.status ?? '');
+  const isActive = ['pending', 'pending_review', 'parsing', 'routing', 'executing'].includes(entry.status ?? '');
   const isFailed = entry.status === 'failed' || entry.status === 'cancelled';
   const isDone = entry.status === 'completed';
   const isStreaming = entry.isStreaming === true;
@@ -249,7 +250,7 @@ export function ChatThread({ entries, isLoading, onCancel, onRetry, className }:
             </AnimatePresence>
           )}
 
-          {isLoading && entries.every((e) => !['pending', 'parsing', 'routing', 'executing'].includes(e.status ?? '')) && (
+          {isLoading && entries.every((e) => !['pending', 'pending_review', 'parsing', 'routing', 'executing'].includes(e.status ?? '')) && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start">
               <div
                 className="rounded-2xl rounded-bl-md px-4 py-2.5 inline-flex items-center gap-1.5"

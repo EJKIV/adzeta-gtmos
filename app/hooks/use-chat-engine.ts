@@ -229,34 +229,16 @@ export function useChatEngine(optionsOrUserId?: UseChatEngineOptions | string): 
         id: data.command_id,
         type: 'command',
         text: trimmed,
-        status: data.requires_approval ? 'pending_review' : 'pending',
+        status: 'pending',
         isStreaming: true,
         timestamp: new Date(),
-        // Store auto-classification results
         classification: data.classification,
-        requires_approval: data.requires_approval,
-        work_queue_task_id: data.work_queue_task_id,
       };
 
       setThread(prev => [...prev, newEntry]);
 
-      // Show toast for approval-required tasks
-      if (data.requires_approval) {
-        toast({
-          title: `${data.classification?.task_type || 'Task'} requires approval`,
-          description: data.classification?.risk_level === 'high' || data.classification?.risk_level === 'critical'
-            ? `High risk (${data.classification?.risk_level}) - Review in Work Queue`
-            : 'Review in Work Queue',
-          variant: data.classification?.risk_level === 'critical' ? 'destructive' : 'default',
-        });
-      }
-
-      // Open SSE stream (or wait for approval if required)
-      if (!data.requires_approval) {
-        startStream(data.command_id);
-      } else {
-        setIsProcessing(false);
-      }
+      // All commands start streaming immediately
+      startStream(data.command_id);
 
     } catch (err) {
       const oe: OrchestratorError = {

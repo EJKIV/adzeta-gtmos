@@ -10,3 +10,4 @@ import './handlers/intel-recommendations';
 import './handlers/workflow-campaign';
 import './handlers/workflow-export';
 import './handlers/system-help';
+import './handlers/system-clarify'; // NEW: Intent clarification with missing info detection
