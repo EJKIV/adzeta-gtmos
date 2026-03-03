@@ -13,7 +13,8 @@ export type CommandStatus =
   | 'executing' 
   | 'completed' 
   | 'failed' 
-  | 'cancelled';
+  | 'cancelled'
+  | 'pending_review'; // Added for approval workflow
 
 /** Agent roles in the system */
 export type AgentRole = 
@@ -27,6 +28,14 @@ export type AgentRole =
   | 'piper'
   | string;
 
+/** Query classification result */
+export interface QueryClassification {
+  task_type: 'research' | 'analytics' | 'recommendation' | 'action' | 'proactive_alert';
+  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  confidence: number; // 0-1
+  reasoning: string;
+}
+
 /** Response from POST /api/oracle/command */
 export interface OrchestratorCommand {
   command_id: string;
@@ -35,6 +44,10 @@ export interface OrchestratorCommand {
   environment?: 'dev' | 'prod';
   estimated_duration?: string;
   queue_position?: number;
+  // Auto-classification results
+  classification?: QueryClassification;
+  requires_approval?: boolean;
+  work_queue_task_id?: string | null;
 }
 
 /** Request body for POST /api/oracle/command */
@@ -111,6 +124,7 @@ export const STATUS_BADGE_CONFIG: Record<CommandStatus, StatusBadgeConfig> = {
   completed: { color: 'green', text: 'Done' },
   failed: { color: 'red', text: 'Failed' },
   cancelled: { color: 'gray', text: 'Cancelled' },
+  pending_review: { color: 'amber', text: 'Review Required' },
 };
 
 /** Thread entry for orchestrator-integrated chat */
@@ -141,6 +155,10 @@ export interface OrchestratorThreadEntry {
   estimated_cost?: number;
   duration_ms?: number;
   timestamp: Date;
+  // Auto-classification results
+  classification?: QueryClassification;
+  requires_approval?: boolean;
+  work_queue_task_id?: string | null;
 }
 
 /** Props for StatusBadge component */
